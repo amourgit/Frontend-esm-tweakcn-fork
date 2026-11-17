@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
-import { useDialogActions } from "@/hooks/use-dialog-actions";
 import { useFullscreen } from "@/hooks/use-fullscreen";
 import { useThemeInspector } from "@/hooks/use-theme-inspector";
 import { cn } from "@/lib/utils";
@@ -33,12 +32,7 @@ const DemoDashboard = lazy(() => import("@/components/examples/dashboard"));
 const TypographyDemo = lazy(() => import("@/components/examples/typography/typography-demo"));
 const CustomDemo = lazy(() => import("@/components/examples/custom"));
 
-const ThemePreviewPanel = ({
-  styles,
-  currentMode,
-  themeId,
-  themeName,
-}: ThemeEditorPreviewProps & { themeId?: string; themeName?: string }) => {
+const ThemePreviewPanel = ({ styles, currentMode }: ThemeEditorPreviewProps) => {
   const { isFullscreen, toggleFullscreen } = useFullscreen();
   const [activeTab, setActiveTab] = useQueryState("p", {
     defaultValue: "cards",
