@@ -1,0 +1,11 @@
+CIVITAS EGEN — Theme Studio (service de création de thèmes)
+
+Ce dépôt est un fork de tweakcn (https://github.com/jnsahaj/tweakcn),
+Copyright (c) Sahaj Jain et contributeurs, distribué sous licence Apache-2.0
+(voir le fichier LICENSE, conservé à l'identique).
+
+Modifications apportées par CIVITAS EGEN (Apache-2.0, §4(b)) :
+- retrait de la vitrine commerciale (accueil, tarifs, paiement, communauté, IA, Figma, télémétrie) ;
+- ouverture directe sur l'éditeur de thèmes ;
+- identité CIVITAS EGEN ;
+- déploiement par image Docker, supervisé par EGEN Kernel.
