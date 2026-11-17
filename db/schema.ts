@@ -1,14 +1,5 @@
 import { ThemeStyles } from "@/types/theme";
-import {
-  pgTable,
-  json,
-  timestamp,
-  boolean,
-  text,
-  integer,
-  primaryKey,
-  index,
-} from "drizzle-orm/pg-core";
+import { pgTable, json, timestamp, boolean, text } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -71,44 +62,6 @@ export const theme = pgTable("theme", {
   updatedAt: timestamp("updated_at").notNull(),
 });
 
-export const aiUsage = pgTable("ai_usage", {
-  id: text("id").primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  modelId: text("model_id").notNull(),
-  promptTokens: text("prompt_tokens").notNull().default("0"),
-  completionTokens: text("completion_tokens").notNull().default("0"),
-  daysSinceEpoch: text("days_since_epoch").notNull(),
-  createdAt: timestamp("created_at").notNull(),
-});
-
-export const subscription = pgTable("subscription", {
-  id: text("id").primaryKey(),
-  createdAt: timestamp("createdAt").notNull(),
-  modifiedAt: timestamp("modifiedAt"),
-  amount: integer("amount").notNull(),
-  currency: text("currency").notNull(),
-  recurringInterval: text("recurringInterval").notNull(),
-  status: text("status").notNull(),
-  currentPeriodStart: timestamp("currentPeriodStart").notNull(),
-  currentPeriodEnd: timestamp("currentPeriodEnd").notNull(),
-  cancelAtPeriodEnd: boolean("cancelAtPeriodEnd").notNull().default(false),
-  canceledAt: timestamp("canceledAt"),
-  startedAt: timestamp("startedAt").notNull(),
-  endsAt: timestamp("endsAt"),
-  endedAt: timestamp("endedAt"),
-  customerId: text("customerId").notNull(),
-  productId: text("productId").notNull(),
-  discountId: text("discountId"),
-  checkoutId: text("checkoutId").notNull(),
-  customerCancellationReason: text("customerCancellationReason"),
-  customerCancellationComment: text("customerCancellationComment"),
-  metadata: text("metadata"), // JSON string
-  customFieldData: text("customFieldData"), // JSON string
-  userId: text("userId").references(() => user.id),
-});
-
 // OAuth 2.0 tables
 
 export const oauthApp = pgTable("oauth_app", {
@@ -159,53 +112,3 @@ export const oauthToken = pgTable("oauth_token", {
   createdAt: timestamp("created_at").notNull(),
   updatedAt: timestamp("updated_at").notNull(),
 });
-
-// Community themes
-
-export const communityTheme = pgTable(
-  "community_theme",
-  {
-    id: text("id").primaryKey(),
-    themeId: text("theme_id")
-      .notNull()
-      .unique()
-      .references(() => theme.id, { onDelete: "cascade" }),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    publishedAt: timestamp("published_at").notNull(),
-    likeCount: integer("like_count").notNull().default(0),
-  },
-  (table) => [
-    index("community_theme_published_at_idx").on(table.publishedAt),
-    index("community_theme_like_count_idx").on(table.likeCount),
-  ]
-);
-
-export const communityThemeTag = pgTable(
-  "community_theme_tag",
-  {
-    communityThemeId: text("community_theme_id")
-      .notNull()
-      .references(() => communityTheme.id, { onDelete: "cascade" }),
-    tag: text("tag").notNull(),
-  },
-  (table) => [
-    primaryKey({ columns: [table.communityThemeId, table.tag] }),
-    index("community_theme_tag_tag_idx").on(table.tag),
-  ]
-);
-
-export const themeLike = pgTable(
-  "theme_like",
-  {
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    themeId: text("theme_id")
-      .notNull()
-      .references(() => communityTheme.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").notNull(),
-  },
-  (table) => [primaryKey({ columns: [table.userId, table.themeId] })]
-);

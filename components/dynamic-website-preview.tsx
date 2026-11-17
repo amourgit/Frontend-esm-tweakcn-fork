@@ -1,9 +1,9 @@
 "use client";
 
 import Logo from "@/assets/logo.svg";
-import { CodeBlock, CodeBlockCopyButton } from "@/components/ai-elements/code-block";
+import { CodeBlock, CodeBlockCopyButton } from "@/components/code-block";
 import { BlockViewer, BlockViewerDisplay, BlockViewerToolbar } from "@/components/block-viewer";
-import { LoadingLogo } from "@/components/editor/ai/loading-logo";
+import { LoadingLogo } from "@/components/loading-logo";
 import { TooltipWrapper } from "@/components/tooltip-wrapper";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -26,8 +26,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { usePostHog } from "posthog-js/react";
-import React, { useEffect, useRef } from "react";
+import React from "react";
 
 /**
  * Dynamic Website Preview - Load and theme external websites
@@ -152,28 +151,11 @@ function DynamicWebsitePreviewProvider({
   allowCrossOrigin?: boolean;
 }) {
   const websitePreviewState = useWebsitePreview({ allowCrossOrigin });
-  const posthog = usePostHog();
 
   const { status, retryValidation, themeInjectionError } = useIframeThemeInjector({
     allowCrossOrigin: allowCrossOrigin && !!websitePreviewState.currentUrl,
     iframeRef: websitePreviewState.iframeRef,
   });
-
-  const statusRef = useRef<IframeStatus>(status);
-  // eslint-disable-next-line
-  statusRef.current = status;
-
-  useEffect(() => {
-    if (websitePreviewState.currentUrl) {
-      setTimeout(() => {
-        // capturing after 1s delay so status is finalized
-        posthog.capture("DYNAMIC_PREVIEW_LOADED", {
-          previewUrl: websitePreviewState.currentUrl,
-          status: statusRef.current,
-        });
-      }, 1000);
-    }
-  }, [websitePreviewState.currentUrl, posthog]);
 
   const contextValue = {
     ...websitePreviewState,

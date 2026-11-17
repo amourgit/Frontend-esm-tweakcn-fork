@@ -22,8 +22,8 @@ export async function middleware(request: NextRequest) {
   }
 
   if (session) {
-    // Redirect logged-in users from /dashboard or /settings (root) to /settings/themes
-    if (pathname === "/dashboard" || pathname === "/settings") {
+    // Redirect logged-in users from /settings (root) to /settings/themes
+    if (pathname === "/settings") {
       return NextResponse.redirect(new URL("/settings/themes", request.url));
     }
   }
@@ -32,5 +32,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/editor/theme/:themeId", "/dashboard", "/settings/:path*", "/success"],
+  matcher: ["/editor/theme/:themeId", "/settings/:path*"],
 };

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Copy, Check, Heart } from "lucide-react";
 import { ThemeEditorState } from "@/types/editor";
 import { ScrollArea, ScrollBar } from "../ui/scroll-area";
-import { CodeBlock } from "@/components/ai-elements/code-block";
+import { CodeBlock } from "@/components/code-block";
 import {
   Tabs,
   TabsList,
@@ -18,7 +18,6 @@ import {
   SelectValue,
   SelectItem,
 } from "@/components/ui/select";
-import { usePostHog } from "posthog-js/react";
 import { useEditorStore } from "@/store/editor-store";
 import { usePreferencesStore } from "@/store/preferences-store";
 import {
@@ -39,7 +38,6 @@ const CodePanel: React.FC<CodePanelProps> = ({ themeEditorState, themeId }) => {
   const [registryCopied, setRegistryCopied] = useState(false);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("index.css");
-  const posthog = usePostHog();
   const { handleSaveClick } = useDialogActions();
 
   const preset = useEditorStore((state) => state.themeState.preset);
@@ -81,22 +79,14 @@ const CodePanel: React.FC<CodePanelProps> = ({ themeEditorState, themeId }) => {
 
   const copyRegistryCommand = async () => {
     try {
-      await navigator.clipboard.writeText(getRegistryCommand(registryId ?? "default", isRegistrySaved));
+      await navigator.clipboard.writeText(
+        getRegistryCommand(registryId ?? "default", isRegistrySaved)
+      );
       setRegistryCopied(true);
       setTimeout(() => setRegistryCopied(false), 2000);
-      captureCopyEvent("COPY_REGISTRY_COMMAND");
     } catch (err) {
       console.error("Failed to copy text:", err);
     }
-  };
-
-  const captureCopyEvent = (event: string) => {
-    posthog.capture(event, {
-      editorType: "theme",
-      preset,
-      colorFormat,
-      tailwindVersion,
-    });
   };
 
   const copyToClipboard = async (text: string) => {
@@ -104,7 +94,6 @@ const CodePanel: React.FC<CodePanelProps> = ({ themeEditorState, themeId }) => {
       await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-      captureCopyEvent("COPY_CODE");
     } catch (err) {
       console.error("Failed to copy text:", err);
     }
@@ -171,7 +160,9 @@ const CodePanel: React.FC<CodePanelProps> = ({ themeEditorState, themeId }) => {
             {showRegistryCommand ? (
               <ScrollArea className="w-full">
                 <div className="overflow-y-hidden pb-2 whitespace-nowrap">
-                  <code className="font-mono text-sm">{getRegistryCommand(registryId as string, isRegistrySaved)}</code>
+                  <code className="font-mono text-sm">
+                    {getRegistryCommand(registryId as string, isRegistrySaved)}
+                  </code>
                 </div>
                 <ScrollBar orientation="horizontal" />
               </ScrollArea>
@@ -294,11 +285,7 @@ const CodePanel: React.FC<CodePanelProps> = ({ themeEditorState, themeId }) => {
 
         <TabsContent value="layout.tsx" className="overflow-hidden">
           <ScrollArea className="relative h-full">
-            <CodeBlock
-              code={layoutCode}
-              language="tsx"
-              className="h-full rounded-none border-0"
-            />
+            <CodeBlock code={layoutCode} language="tsx" className="h-full rounded-none border-0" />
             <ScrollBar orientation="horizontal" />
             <ScrollBar orientation="vertical" />
           </ScrollArea>

@@ -1,9 +1,8 @@
 "use client";
 
-import { AlertCircle, Sparkle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import React from "react";
 
-import { ChatInterface } from "@/components/editor/ai/chat-interface";
 import { ColorsTabContent } from "@/components/editor/colors-tab-content";
 import ControlSection from "@/components/editor/control-section";
 import { FontPicker } from "@/components/editor/font-picker";
@@ -17,7 +16,6 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs";
 import { COMMON_STYLES, defaultThemeState } from "@/config/theme";
-import { useAIThemeGenerationCore } from "@/hooks/use-ai-theme-generation-core";
 import { useControlsTabFromUrl, type ControlTab } from "@/hooks/use-controls-tab-from-url";
 import { useEditorStore } from "@/store/editor-store";
 import { type FontInfo } from "@/types/fonts";
@@ -34,7 +32,6 @@ interface ThemeControlPanelProps {
 const ThemeControlPanel = ({ styles, currentMode, onChange }: ThemeControlPanelProps) => {
   const { themeState } = useEditorStore();
   const { tab, handleSetTab } = useControlsTabFromUrl();
-  const { isGeneratingTheme } = useAIThemeGenerationCore();
 
   const currentStyles = React.useMemo(
     () => ({
@@ -90,7 +87,7 @@ const ThemeControlPanel = ({ styles, currentMode, onChange }: ThemeControlPanelP
   return (
     <>
       <div className="border-b">
-        <ThemePresetSelect className="h-14 rounded-none" disabled={isGeneratingTheme} />
+        <ThemePresetSelect className="h-14 rounded-none" />
       </div>
       <div className="flex min-h-0 flex-1 flex-col space-y-4">
         <Tabs
@@ -103,20 +100,15 @@ const ThemeControlPanel = ({ styles, currentMode, onChange }: ThemeControlPanelP
               <TabsTriggerPill value="colors">Colors</TabsTriggerPill>
               <TabsTriggerPill value="typography">Typography</TabsTriggerPill>
               <TabsTriggerPill value="other">Other</TabsTriggerPill>
-              <TabsTriggerPill
-                value="ai"
-                className="data-[state=active]:[--effect:var(--secondary-foreground)] data-[state=active]:[--foreground:var(--muted-foreground)] data-[state=active]:[--muted-foreground:var(--effect)]"
-              >
-                <Sparkle className="mr-1 size-3.5 text-current" />
-                <span className="animate-text via-foreground from-muted-foreground to-muted-foreground flex items-center gap-1 bg-gradient-to-r from-50% via-60% to-100% bg-[200%_auto] bg-clip-text text-sm text-transparent">
-                  Generate
-                </span>
-              </TabsTriggerPill>
             </TabsList>
           </HorizontalScrollArea>
 
           <TabsContent value="colors" className="mt-1 size-full overflow-hidden">
-            <ColorsTabContent currentStyles={currentStyles} updateStyle={updateStyle} updateStyles={updateStyles} />
+            <ColorsTabContent
+              currentStyles={currentStyles}
+              updateStyle={updateStyle}
+              updateStyles={updateStyles}
+            />
           </TabsContent>
 
           <TabsContent value="typography" className="mt-1 size-full overflow-hidden">
@@ -138,7 +130,10 @@ const ThemeControlPanel = ({ styles, currentMode, onChange }: ThemeControlPanelP
               <ControlSection title="Font Family" expanded>
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="font-sans" className="text-muted-foreground w-16 shrink-0 text-[11px] font-medium">
+                    <Label
+                      htmlFor="font-sans"
+                      className="text-muted-foreground w-16 shrink-0 text-[11px] font-medium"
+                    >
                       Sans-Serif
                     </Label>
                     <div className="min-w-0 flex-1">
@@ -155,7 +150,10 @@ const ThemeControlPanel = ({ styles, currentMode, onChange }: ThemeControlPanelP
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="font-serif" className="text-muted-foreground w-16 shrink-0 text-[11px] font-medium">
+                    <Label
+                      htmlFor="font-serif"
+                      className="text-muted-foreground w-16 shrink-0 text-[11px] font-medium"
+                    >
                       Serif
                     </Label>
                     <div className="min-w-0 flex-1">
@@ -172,7 +170,10 @@ const ThemeControlPanel = ({ styles, currentMode, onChange }: ThemeControlPanelP
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="font-mono" className="text-muted-foreground w-16 shrink-0 text-[11px] font-medium">
+                    <Label
+                      htmlFor="font-mono"
+                      className="text-muted-foreground w-16 shrink-0 text-[11px] font-medium"
+                    >
                       Mono
                     </Label>
                     <div className="min-w-0 flex-1">
@@ -254,10 +255,6 @@ const ThemeControlPanel = ({ styles, currentMode, onChange }: ThemeControlPanelP
                 />
               </ControlSection>
             </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value="ai" className="mt-1 size-full overflow-hidden">
-            <ChatInterface />
           </TabsContent>
         </Tabs>
       </div>

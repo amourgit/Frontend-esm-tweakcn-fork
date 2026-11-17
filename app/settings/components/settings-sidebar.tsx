@@ -1,12 +1,10 @@
 "use client";
 
 import { Separator } from "@/components/ui/separator";
-import { useSubscription } from "@/hooks/use-subscription";
 import { cn } from "@/lib/utils";
-import { ChartNoAxesCombined, CreditCard, ExternalLink, LucideIcon, Palette, UserCog } from "lucide-react";
+import { ExternalLink, LucideIcon, Palette, UserCog } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo } from "react";
 
 type NavItem =
   | {
@@ -23,32 +21,13 @@ type NavItem =
 
 const BASE_NAV_ITEMS: NavItem[] = [
   { type: "link", href: "/settings/themes", label: "Themes", icon: Palette },
-  { type: "link", href: "/settings/usage", label: "AI Usage", icon: ChartNoAxesCombined },
   { type: "separator", id: "account-separator" },
   { type: "link", href: "/settings/account", label: "Account", icon: UserCog },
 ];
 
-const getSubscriptionNavItems = (): NavItem[] => [
-  { type: "separator", id: "subscription-separator" },
-  {
-    type: "link",
-    href: "/settings/portal",
-    label: "Manage Subscription",
-    icon: CreditCard,
-    isExternal: true,
-  },
-];
-
 export function SettingsSidebar() {
   const pathname = usePathname();
-  const { subscriptionStatus } = useSubscription();
-
-  const navItems = useMemo(() => {
-    if (subscriptionStatus?.isSubscribed) {
-      return [...BASE_NAV_ITEMS, ...getSubscriptionNavItems()];
-    }
-    return BASE_NAV_ITEMS;
-  }, [subscriptionStatus?.isSubscribed]);
+  const navItems = BASE_NAV_ITEMS;
 
   return (
     <aside className="w-64 shrink-0">

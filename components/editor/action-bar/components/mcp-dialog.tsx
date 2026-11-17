@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/revola";
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
 import { Check, Copy } from "lucide-react";
-import { usePostHog } from "posthog-js/react";
 
 interface MCPDialogProps {
   open: boolean;
@@ -36,11 +35,9 @@ const mcpConfig = {
 
 export function MCPDialog({ open, onOpenChange }: MCPDialogProps) {
   const { hasCopied, copyToClipboard } = useCopyToClipboard();
-  const posthog = usePostHog();
 
   const handleCopy = async (config: typeof mcpConfig) => {
     copyToClipboard(JSON.stringify(config, null, 2));
-    posthog.capture("COPY_MCP_SETUP");
   };
 
   return (

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { usePostHog } from "posthog-js/react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,7 +25,6 @@ export function DeleteAccountSection() {
   const [confirmText, setConfirmText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
-  const posthog = usePostHog();
 
   const isConfirmed = confirmText === CONFIRMATION_TEXT;
 
@@ -37,7 +35,6 @@ export function DeleteAccountSection() {
     const result = await deleteAccount();
 
     if (result.success) {
-      posthog.reset();
       await authClient.signOut();
       router.push("/");
     } else {
@@ -53,52 +50,40 @@ export function DeleteAccountSection() {
   return (
     <>
       <div className="border-destructive/50 rounded-lg border p-6">
-        <h3 className="text-lg font-semibold text-destructive">Danger Zone</h3>
+        <h3 className="text-destructive text-lg font-semibold">Danger Zone</h3>
         <p className="text-muted-foreground mt-1 text-sm">
-          Permanently delete your account and all associated data. This action
-          cannot be undone.
+          Permanently delete your account and all associated data. This action cannot be undone.
         </p>
-        <Button
-          variant="destructive"
-          className="mt-4"
-          onClick={() => setOpen(true)}
-        >
+        <Button variant="destructive" className="mt-4" onClick={() => setOpen(true)}>
           Delete Account
         </Button>
       </div>
 
-      <AlertDialog open={open} onOpenChange={(v) => {
-        if (!isDeleting) {
-          setOpen(v);
-          if (!v) setConfirmText("");
-        }
-      }}>
+      <AlertDialog
+        open={open}
+        onOpenChange={(v) => {
+          if (!isDeleting) {
+            setOpen(v);
+            if (!v) setConfirmText("");
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="size-5 text-destructive" />
+              <AlertTriangle className="text-destructive size-5" />
               Delete your account
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
-                <p>
-                  This will permanently delete your account and all associated
-                  data, including:
-                </p>
+                <p>This will permanently delete your account and all associated data, including:</p>
                 <ul className="list-disc space-y-1 pl-5">
                   <li>All saved themes</li>
-                  <li>Community published themes</li>
-                  <li>AI usage history</li>
-                  <li>Active subscription (if any)</li>
                 </ul>
                 <p className="font-medium">This action cannot be undone.</p>
                 <div className="pt-1">
-                  <label
-                    htmlFor="confirm-delete"
-                    className="text-sm font-medium"
-                  >
-                    Type <span className="font-mono font-bold">{CONFIRMATION_TEXT}</span> to
-                    confirm
+                  <label htmlFor="confirm-delete" className="text-sm font-medium">
+                    Type <span className="font-mono font-bold">{CONFIRMATION_TEXT}</span> to confirm
                   </label>
                   <Input
                     id="confirm-delete"

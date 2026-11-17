@@ -2,8 +2,8 @@
 
 import { z } from "zod";
 import { db } from "@/db";
-import { theme as themeTable, communityTheme } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { theme as themeTable } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import cuid from "cuid";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -13,13 +13,8 @@ import {
   UnauthorizedError,
   ValidationError,
   ThemeNotFoundError,
-  ErrorCode,
-  actionError,
   actionSuccess,
-  type ActionResult,
 } from "@/types/errors";
-import { MAX_FREE_THEMES } from "@/lib/constants";
-import { getMyActiveSubscription } from "@/lib/subscription";
 
 // Helper to get user ID with better error handling
 async function getCurrentUserId(): Promise<string> {
@@ -38,7 +33,6 @@ async function getCurrentUserId(): Promise<string> {
 function logError(error: Error, context: Record<string, any>) {
   console.error("Theme action error:", error, context);
 
-  // TODO: Add server-side error reporting to PostHog or your preferred service
   // For production, you'd want to send critical errors to an external service
   if (error.name === "UnauthorizedError" || error.name === "ValidationError") {
     // These are expected errors, log but don't report
@@ -72,12 +66,8 @@ export async function getThemes() {
         styles: themeTable.styles,
         createdAt: themeTable.createdAt,
         updatedAt: themeTable.updatedAt,
-        isPublished: sql<boolean>`${communityTheme.id} is not null`.as(
-          "is_published"
-        ),
       })
       .from(themeTable)
-      .leftJoin(communityTheme, eq(themeTable.id, communityTheme.themeId))
       .where(eq(themeTable.userId, userId));
     return userThemes;
   } catch (error) {
@@ -112,23 +102,6 @@ export async function createTheme(formData: { name: string; styles: ThemeStyles 
     const validation = createThemeSchema.safeParse(formData);
     if (!validation.success) {
       throw new ValidationError("Invalid input", validation.error.format());
-    }
-
-    // Check theme limit
-    const userThemes = await db.select().from(themeTable).where(eq(themeTable.userId, userId));
-
-    if (userThemes.length >= MAX_FREE_THEMES) {
-      const activeSubscription = await getMyActiveSubscription(userId);
-      const isSubscribed =
-        !!activeSubscription &&
-        activeSubscription?.productId === process.env.NEXT_PUBLIC_TWEAKCN_PRO_PRODUCT_ID;
-
-      if (!isSubscribed) {
-        return actionError(
-          ErrorCode.THEME_LIMIT_REACHED,
-          `You have reached the limit of ${MAX_FREE_THEMES} themes.`
-        );
-      }
     }
 
     const { name, styles } = validation.data;

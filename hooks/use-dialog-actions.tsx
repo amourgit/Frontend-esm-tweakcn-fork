@@ -4,14 +4,12 @@ import { ShareDialog } from "@/components/editor/share-dialog";
 import { ThemeSaveDialog } from "@/components/editor/theme-save-dialog";
 import { toast } from "@/components/ui/use-toast";
 import { useCreateTheme, useUpdateTheme } from "@/hooks/themes";
-import { useAIThemeGenerationCore } from "@/hooks/use-ai-theme-generation-core";
 import { usePostLoginAction } from "@/hooks/use-post-login-action";
 import { authClient } from "@/lib/auth-client";
 import { useAuthStore } from "@/store/auth-store";
 import { useEditorStore } from "@/store/editor-store";
 import { useThemePresetStore } from "@/store/theme-preset-store";
 import { parseCssInput } from "@/utils/parse-css-input";
-import { usePostHog } from "posthog-js/react";
 import { createContext, ReactNode, useContext, useState } from "react";
 
 type PendingAction = "share" | "v0" | null;
@@ -46,7 +44,6 @@ interface DialogActionsContextType {
   dialogKey: number;
   isCreatingTheme: boolean;
   isUpdatingTheme: boolean;
-  isGeneratingTheme: boolean;
   pendingAction: PendingAction;
   existingThemeName: string | undefined;
 
@@ -74,18 +71,22 @@ function useDialogActionsStore(): DialogActionsContextType {
   const [shareUrl, setShareUrl] = useState("");
   const [dialogKey, _setDialogKey] = useState(0);
 
-  const { themeState, setThemeState, applyThemePreset, hasThemeChangedFromCheckpoint, hasUnsavedChanges } =
-    useEditorStore();
+  const {
+    themeState,
+    setThemeState,
+    applyThemePreset,
+    hasThemeChangedFromCheckpoint,
+    hasUnsavedChanges,
+  } = useEditorStore();
   const { getPreset } = useThemePresetStore();
   const { data: session } = authClient.useSession();
   const { openAuthDialog } = useAuthStore();
   const createThemeMutation = useCreateTheme();
   const updateThemeMutation = useUpdateTheme();
-  const { isGeneratingTheme } = useAIThemeGenerationCore();
-  const posthog = usePostHog();
 
   const currentPreset = themeState?.preset ? getPreset(themeState.preset) : undefined;
-  const isOnSavedPreset = !!currentPreset && currentPreset.source === "SAVED" && hasUnsavedChanges();
+  const isOnSavedPreset =
+    !!currentPreset && currentPreset.source === "SAVED" && hasUnsavedChanges();
   const existingThemeName = isOnSavedPreset ? currentPreset.label : undefined;
 
   usePostLoginAction("SAVE_THEME", () => {
@@ -147,10 +148,6 @@ function useDialogActionsStore(): DialogActionsContextType {
 
     try {
       const theme = await createThemeMutation.mutateAsync(themeData);
-      posthog.capture("CREATE_THEME", {
-        theme_id: theme?.id,
-        theme_name: theme?.name,
-      });
       if (!theme) return;
       applyThemePreset(theme?.id || themeState.preset || "default");
       if (pendingAction === "share") {
@@ -185,11 +182,6 @@ function useDialogActionsStore(): DialogActionsContextType {
 
     const isSavedPreset = !!currentPreset && currentPreset.source === "SAVED";
 
-    posthog.capture("SHARE_THEME", {
-      theme_id: id,
-      theme_name: currentPreset?.label,
-      is_saved: isSavedPreset,
-    });
 
     const url = isSavedPreset
       ? `https://tweakcn.com/themes/${id}`
@@ -209,11 +201,6 @@ function useDialogActionsStore(): DialogActionsContextType {
     const isSavedPreset = id ? true : !!currentPreset && currentPreset.source === "SAVED";
     const themeName = name || currentPreset?.label || presetId;
 
-    posthog.capture("OPEN_IN_V0", {
-      theme_id: presetId,
-      theme_name: themeName,
-      is_saved: isSavedPreset,
-    });
 
     const themeUrl = isSavedPreset
       ? `https://tweakcn.com/r/v0/${presetId}`
@@ -263,7 +250,6 @@ function useDialogActionsStore(): DialogActionsContextType {
     dialogKey,
     isCreatingTheme: createThemeMutation.isPending,
     isUpdatingTheme: updateThemeMutation.isPending,
-    isGeneratingTheme,
     pendingAction,
     existingThemeName,
 
