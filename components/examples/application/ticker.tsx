@@ -13,7 +13,7 @@ const currencyFormatter = new Intl.NumberFormat("en-US", {
 const tickers = [
   { symbol: "SDCN", name: "Shadcn Inc.", amount: 120748.0, change: 1.25 },
   { symbol: "ACME", name: "Acme Corp.", amount: 84231.5, change: -0.42 },
-  { symbol: "TWKN", name: "Tweakcn Ltd.", amount: 45019.75, change: 2.18 },
+  { symbol: "TWKN", name: "Egen Ltd.", amount: 45019.75, change: 2.18 },
   { symbol: "VEGA", name: "Vega Systems", amount: 9874.2, change: -1.07 },
 ];
 

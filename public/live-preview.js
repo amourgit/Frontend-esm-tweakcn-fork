@@ -74,7 +74,7 @@ function loadGoogleFont(family, weights) {
 
 function overrideFontClasses(root, fonts) {
   const doc = root.ownerDocument || document;
-  const styleId = "tweakcn-font-overrides";
+  const styleId = "studio-font-overrides";
   let styleElement = doc.getElementById(styleId);
   
   // Create style element if it doesn't exist
@@ -158,7 +158,7 @@ function overrideShadowClass(root, themeStyles, mode) {
   };
 
   const doc = root.ownerDocument || document;
-  const styleId = "tweakcn-shadow-overrides";
+  const styleId = "studio-shadow-overrides";
   let styleElement = doc.getElementById(styleId);
   
   // Create style element if it doesn't exist
@@ -197,7 +197,7 @@ function loadThemeFonts(root, themeStyles) {
     // Override font classes with theme fonts
     overrideFontClasses(root, currentFonts);
   } catch (error) {
-    console.warn("Tweakcn Embed: Failed to load fonts:", error);
+    console.warn("Theme Studio Embed: Failed to load fonts:", error);
   }
 }
 
@@ -235,7 +235,7 @@ function applyThemeStyles(root, themeStyles, mode) {
 function applyTheme(themeState) {
   const root = document.documentElement;
   if (!root || !themeState || !themeState.styles) {
-    console.warn("Tweakcn Embed: Missing root element or theme styles.");
+    console.warn("Theme Studio Embed: Missing root element or theme styles.");
     return;
   }
 
@@ -249,20 +249,20 @@ function sendMessageToParent(message) {
     try {
       window.parent.postMessage(message, "*");
     } catch (error) {
-      console.warn("Tweakcn Embed: Failed to send message to parent:", error);
+      console.warn("Theme Studio Embed: Failed to send message to parent:", error);
     }
   }
 };
 
-const TWEAKCN_MESSAGE = {
-  PING: "TWEAKCN_PING",
-  PONG: "TWEAKCN_PONG",
-  CHECK_SHADCN: "TWEAKCN_CHECK_SHADCN",
-  SHADCN_STATUS: "TWEAKCN_SHADCN_STATUS",
-  THEME_UPDATE: "TWEAKCN_THEME_UPDATE",
-  THEME_APPLIED: "TWEAKCN_THEME_APPLIED",
-  EMBED_LOADED: "TWEAKCN_EMBED_LOADED",
-  EMBED_ERROR: "TWEAKCN_EMBED_ERROR",
+const STUDIO_MESSAGE = {
+  PING: "STUDIO_PING",
+  PONG: "STUDIO_PONG",
+  CHECK_SHADCN: "STUDIO_CHECK_SHADCN",
+  SHADCN_STATUS: "STUDIO_SHADCN_STATUS",
+  THEME_UPDATE: "STUDIO_THEME_UPDATE",
+  THEME_APPLIED: "STUDIO_THEME_APPLIED",
+  EMBED_LOADED: "STUDIO_EMBED_LOADED",
+  EMBED_ERROR: "STUDIO_EMBED_ERROR",
 };
 
 // ----- MAIN SCRIPT -----
@@ -270,7 +270,7 @@ const TWEAKCN_MESSAGE = {
   "use strict";
   
   // Prevent multiple initialization
-  if (window.tweakcnEmbed) return; 
+  if (window.studioEmbed) return; 
 
   const handleMessage = (event) => {
     // Verify the message is from the parent window
@@ -280,29 +280,29 @@ const TWEAKCN_MESSAGE = {
 
     const ALLOWED_ORIGINS = [STUDIO_ORIGIN].filter(Boolean);
     if (!ALLOWED_ORIGINS.includes(event.origin)){
-      sendMessageToParent({ type: TWEAKCN_MESSAGE.EMBED_ERROR, payload: { error: "Origin not allowed. Preview failed to establish the connection with tweakcn." } });
+      sendMessageToParent({ type: STUDIO_MESSAGE.EMBED_ERROR, payload: { error: "Origin not allowed. Preview failed to establish the connection with the studio." } });
       return;
     } ;    
     
     const { type, payload } = event.data;
 
     switch (type) {
-      case TWEAKCN_MESSAGE.PING:
-        sendMessageToParent({ type: TWEAKCN_MESSAGE.PONG });
+      case STUDIO_MESSAGE.PING:
+        sendMessageToParent({ type: STUDIO_MESSAGE.PONG });
         break;
 
-      case TWEAKCN_MESSAGE.CHECK_SHADCN:
+      case STUDIO_MESSAGE.CHECK_SHADCN:
         const supportInfo = checkShadcnSupport();
         sendMessageToParent({
-          type: TWEAKCN_MESSAGE.SHADCN_STATUS,
+          type: STUDIO_MESSAGE.SHADCN_STATUS,
           payload: supportInfo,
         });
         break;
 
-      case TWEAKCN_MESSAGE.THEME_UPDATE:
+      case STUDIO_MESSAGE.THEME_UPDATE:
         if (payload && payload.themeState) {
           applyTheme(payload.themeState);
-          sendMessageToParent({ type: TWEAKCN_MESSAGE.THEME_APPLIED });
+          sendMessageToParent({ type: STUDIO_MESSAGE.THEME_APPLIED });
         }
         break;
 
@@ -317,7 +317,7 @@ const TWEAKCN_MESSAGE = {
   // ----- NAVIGATION TRACKING -----
   const emitNavigationUpdate = () => {
     try {
-      sendMessageToParent({ type: TWEAKCN_MESSAGE.NAVIGATION_UPDATE, payload: { url: window.location.href } });
+      sendMessageToParent({ type: STUDIO_MESSAGE.NAVIGATION_UPDATE, payload: { url: window.location.href } });
     } catch (e) {
       // noop
     }
@@ -347,16 +347,16 @@ const TWEAKCN_MESSAGE = {
   window.addEventListener("popstate", emitNavigationUpdate);
   window.addEventListener("hashchange", emitNavigationUpdate);
 
-  window.tweakcnEmbed = {
+  window.studioEmbed = {
     initialized: true,
     version: "1.0.0",
     destroy: () => {
       window.removeEventListener("message", handleMessage);
-      delete window.tweakcnEmbed;
+      delete window.studioEmbed;
     },
   };
 
   // Announce that the embed script is ready and send initial URL
-  sendMessageToParent({ type: TWEAKCN_MESSAGE.EMBED_LOADED });
+  sendMessageToParent({ type: STUDIO_MESSAGE.EMBED_LOADED });
   emitNavigationUpdate();
 })(); 

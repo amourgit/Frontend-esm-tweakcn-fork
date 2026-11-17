@@ -1,6 +1,6 @@
 "use client";
 
-import Logo from "@/assets/logo.svg";
+import { BrandLogo } from "@/components/brand-logo";
 import { CodeBlock, CodeBlockCopyButton } from "@/components/code-block";
 import { BlockViewer, BlockViewerDisplay, BlockViewerToolbar } from "@/components/block-viewer";
 import { LoadingLogo } from "@/components/loading-logo";
@@ -326,7 +326,7 @@ function NoWebsitePreviewLoaded() {
           </div>
           <X className="text-muted-foreground size-6" />
           <div className="bg-muted outline-border/50 flex size-16 flex-col items-center justify-center rounded-full outline">
-            <Logo className="text-foreground size-7" />
+            <BrandLogo variant="icon" className="size-7" />
           </div>
         </div>
 

@@ -1,11 +1,11 @@
 import { getTheme } from "@/actions/themes";
 import Editor from "@/components/editor/editor";
+import { PRODUCT_DESCRIPTION, PRODUCT_NAME } from "@/lib/site";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "tweakcn — Theme Generator for shadcn/ui",
-  description:
-    "Easily customize and preview your shadcn/ui theme with tweakcn. Modify colors, fonts, and styles in real-time.",
+  title: `${PRODUCT_NAME} — Theme Editor`,
+  description: PRODUCT_DESCRIPTION,
 };
 
 export default async function EditorPage({ params }: { params: Promise<{ themeId: string[] }> }) {

@@ -4,7 +4,6 @@ import { Circle, Star } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import Link from "next/link";
 
 export function GithubCard() {
   return (
@@ -12,19 +11,16 @@ export function GithubCard() {
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1.5">
-            <CardTitle>tweakcn</CardTitle>
+            <CardTitle>egen-theme-studio</CardTitle>
             <CardDescription>
-              A visual editor for shadcn/ui components with beautiful themes. Accessible.
-              Customizable. Open Source.
+              A visual editor for shadcn/ui themes. Accessible. Customizable.
             </CardDescription>
           </div>
           <div className="bg-secondary text-secondary-foreground flex min-w-20 shrink-0 items-center space-x-1 rounded-md">
-            <Link href="https://github.com/jnsahaj/tweakcn">
-              <Button variant="secondary" className="flex items-center gap-2 px-3 shadow-none">
-                <Star />
-                Star
-              </Button>
-            </Link>
+            <Button variant="secondary" className="flex items-center gap-2 px-3 shadow-none">
+              <Star />
+              Star
+            </Button>
           </div>
         </div>
       </CardHeader>

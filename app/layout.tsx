@@ -5,42 +5,35 @@ import { ThemeScript } from "@/components/theme-script";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryProvider } from "@/lib/query-client";
+import { getBaseUrl, PRODUCT_DESCRIPTION, PRODUCT_NAME, PUBLISHER_NAME } from "@/lib/site";
 import type { Metadata, Viewport } from "next";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Suspense } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Beautiful themes for shadcn/ui — tweakcn | Theme Editor & Generator",
-  description:
-    "Customize theme for shadcn/ui with tweakcn's interactive editor. Supports Tailwind CSS v4, Shadcn UI, and custom styles. Modify properties, preview changes, and get the code in real time.",
-  keywords:
-    "theme editor, theme generator, shadcn, ui, components, react, tailwind, button, editor, visual editor, component editor, web development, frontend, design system, UI components, React components, Tailwind CSS, shadcn/ui themes",
-  authors: [{ name: "Sahaj Jain" }],
+  metadataBase: new URL(getBaseUrl()),
+  title: `${PRODUCT_NAME} — ${PUBLISHER_NAME}`,
+  description: PRODUCT_DESCRIPTION,
+  applicationName: PRODUCT_NAME,
+  authors: [{ name: PUBLISHER_NAME }],
+  publisher: PUBLISHER_NAME,
   openGraph: {
-    title: "Beautiful themes for shadcn/ui — tweakcn | Theme Editor & Generator",
-    description:
-      "Customize theme for shadcn/ui with tweakcn's interactive editor. Supports Tailwind CSS v4, Shadcn UI, and custom styles. Modify properties, preview changes, and get the code in real time.",
-    url: "https://tweakcn.com/",
-    siteName: "tweakcn",
-    images: [
-      {
-        url: "https://tweakcn.com/og-image.v050725.png",
-        width: 1200,
-        height: 630,
-      },
-    ],
-    locale: "en_US",
+    title: PRODUCT_NAME,
+    description: PRODUCT_DESCRIPTION,
+    siteName: PRODUCT_NAME,
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+    locale: "fr_FR",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Beautiful themes for shadcn/ui — tweakcn | Theme Editor & Generator",
-    description:
-      "Customize theme for shadcn/ui with tweakcn's interactive editor. Supports Tailwind CSS v4, Shadcn UI, and custom styles. Modify properties, preview changes, and get the code in real time.",
-    images: ["https://tweakcn.com/og-image.v050725.png"],
+    title: PRODUCT_NAME,
+    description: PRODUCT_DESCRIPTION,
+    images: ["/og-image.png"],
   },
-  robots: "index, follow",
+  // Service interne : pas d'indexation par les moteurs de recherche.
+  robots: "noindex, nofollow",
 };
 
 export const viewport: Viewport = {
@@ -54,7 +47,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <ThemeScript />
         <DynamicFontLoader />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />

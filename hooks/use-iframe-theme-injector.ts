@@ -61,7 +61,7 @@ export const useIframeThemeInjector = ({
     validationTimeoutRef.current = setTimeout(() => {
       setStatus("missing");
       setThemeInjectionError(
-        "The tweakcn's live theme preview script could not be found. Please make sure the script is included in the website's source code and try again."
+        "The live theme preview script could not be found. Please make sure the script is included in the website's source code and try again."
       );
     }, 3000);
   }, [postMessage]);
@@ -106,7 +106,7 @@ export const useIframeThemeInjector = ({
 
       switch (message.type) {
         case MESSAGE.EMBED_LOADED:
-          console.log("Tweakcn Embed: Embed loaded");
+          console.log("Theme Studio Embed: Embed loaded");
           setThemeInjectionError(null);
           break;
 
@@ -131,7 +131,7 @@ export const useIframeThemeInjector = ({
 
         case MESSAGE.EMBED_ERROR:
           const { error } = message.payload;
-          console.error("Tweakcn Embed: Error from iframe:", error);
+          console.error("Theme Studio Embed: Error from iframe:", error);
           setStatus("error");
           setThemeInjectionError(error);
           break;
