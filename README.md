@@ -1,89 +1,88 @@
-<div align="center">
-  <h1>tweakcn.com</h1>
-</div>
+# EGEN Theme Studio
 
-<div align="center">
-  <a href="https://vercel.com/oss">
-    <img alt="Vercel OSS Program" src="https://vercel.com/oss/program-badge.svg" />
-  </a>
-  <br />
-  <br />
-  <a href="https://discord.gg/Phs4u2NM3n" target="_blank">
-    <img alt="Discord" src="https://img.shields.io/discord/1353416868769173576?style=for-the-badge&logo=discord&logoColor=%23ffffff">
-  </a>
-  <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/jnsahaj/tweakcn?style=for-the-badge&logo=github">
-  <a href="https://x.com/iamsahaj_xyz">
-    <img alt="X (formerly Twitter) URL" src="https://img.shields.io/twitter/url?url=https%3A%2F%2Fx.com%2Fiamsahaj_xyz&style=for-the-badge&logo=x&label=%40iamsahaj_xyz&color=%2300000000" />
-  </a>
-</div>
+Éditeur de thèmes de l'écosystème **EGEN**, édité par **CIVITAS**. Service indépendant : il se déploie seul (image Docker + PostgreSQL) et n'est pas embarqué dans le core ni dans le framework.
 
-<br />
+Il permet de concevoir des thèmes (shadcn/ui, Tailwind CSS v4), de les prévisualiser en direct, de les enregistrer et de les exporter.
 
-**[tweakcn](https://tweakcn.com)** is a powerful Visual Theme Editor for tailwind CSS & shadcn/ui components. It comes with Beautiful theme presets to get started, while aiming to offer advanced customisation for each aspect of your UI
+> Fork de [tweakcn](https://github.com/jnsahaj/tweakcn) (Apache-2.0) — voir [`LICENSE`](LICENSE) et [`NOTICE`](NOTICE).
+> Retirés : page d'accueil et pages commerciales, paiement, génération IA, thèmes communautaires, export Figma, télémétrie, intégration v0.
+> Conservés : éditeur complet, thèmes prédéfinis, import/export, thèmes enregistrés, API `v1`, OAuth, registre shadcn.
 
-![tweakcn.com](public/og-image.v050725.png)
+## Prérequis
 
-## Motivation
+- Node.js ≥ 20.9 (`.nvmrc` : 22)
+- pnpm 10 — **seul gestionnaire supporté** (`npm install` est refusé avec un message explicite)
+- PostgreSQL 14+ (fourni par `docker compose` en déploiement)
 
-Websites made with shadcn/ui famously look the same. tweakcn is a tool that helps you customize shadcn/ui components visually, to make your components stand-out. The goal is to build a platform where a user can discover endless customization options and then have the ability to put their own twist on it.
-
-## Current Features
-
-You can find the full feature list here: https://tweakcn.com/#features
-
-## Run Locally
-
-**IMPORTANT: For contributions, please see [CONTRIBUTING.md](CONTRIBUTING.md).**
-
-### Prerequisites
-
-- Node.js 18+
-- npm / yarn / pnpm
-
-### Installation
-
-1. Clone the repository:
+## Déploiement avec Docker (recommandé)
 
 ```bash
-git clone https://github.com/jnsahaj/tweakcn.git
-cd tweakcn
+cp .env.example .env
+# Éditer .env : BASE_URL, NEXT_PUBLIC_APP_URL, POSTGRES_PASSWORD, BETTER_AUTH_SECRET,
+#               et au moins un fournisseur de connexion (GitHub ou Google).
+docker compose up -d --build
 ```
 
-2. Install dependencies:
+- L'application applique elle-même les migrations au démarrage (idempotent) et attend que la base soit prête.
+- Santé : `curl http://localhost:3000/api/health` → `{"status":"ok"}`
+- Logs : `docker compose logs -f app`
+- Mise à jour : `git pull && docker compose up -d --build`
+- Les données sont dans le volume `pgdata`. Sauvegarde : `docker compose exec db pg_dump -U studio egen_theme_studio > sauvegarde.sql`
+
+### Image seule (registre)
+
+`NEXT_PUBLIC_APP_URL` est inlinée **au build** : construire une image par URL publique.
 
 ```bash
-npm install
+docker build -t egen-theme-studio:latest --build-arg NEXT_PUBLIC_APP_URL=https://studio.example.org .
+docker run -d --name egen-theme-studio -p 3000:3000 \
+  -e DATABASE_URL="postgresql://user:motdepasse@hote:5432/base" \
+  -e BETTER_AUTH_SECRET="..." -e BASE_URL="https://studio.example.org" \
+  -e GITHUB_CLIENT_ID="..." -e GITHUB_CLIENT_SECRET="..." \
+  egen-theme-studio:latest
 ```
 
-3. Start the development server:
+Pour une base distante qui impose SSL, ajouter `?sslmode=require` à `DATABASE_URL`.
+
+## Connexion
+
+Le service utilise Better Auth avec **GitHub** et **Google** (pas d'email/mot de passe). URL de callback à déclarer chez le fournisseur :
+`<BASE_URL>/api/auth/callback/github` et `<BASE_URL>/api/auth/callback/google`.
+
+## Développement local
 
 ```bash
-npm run dev
+corepack enable                      # ou : npm install -g pnpm@10.34.9
+pnpm install --frozen-lockfile
+cp .env.example .env                 # DATABASE_URL pointe vers votre PostgreSQL local
+pnpm db:migrate
+pnpm dev                             # http://localhost:3000
 ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser.
+PostgreSQL jetable pour le développement :
 
-## Contributors
+```bash
+docker run -d --name studio-db -p 5432:5432 -e POSTGRES_USER=studio \
+  -e POSTGRES_PASSWORD=CHANGER_MOI -e POSTGRES_DB=egen_theme_studio postgres:16-alpine
+```
 
-<a href="https://github.com/jnsahaj/tweakcn/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=jnsahaj/tweakcn" />
-</a>
+Build de production sans Docker : `pnpm build && pnpm db:migrate && pnpm start`.
 
-Made with [contrib.rocks](https://contrib.rocks).
+## Applications OAuth (accès API `v1`, ex. TokiForge)
 
-### Interested in Contributing?
+Créer une application cliente (le secret n'est affiché qu'une fois) :
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+```bash
+# Avec Docker
+docker compose exec app node create-oauth-app.cjs --name "TokiForge" --redirect-uris "https://toki.example.org/callback"
+# En développement
+pnpm tsx scripts/create-oauth-app.ts --name "TokiForge" --redirect-uris "http://localhost:4000/callback"
+```
 
-# Star History
+Voir [`docs/oauth-api.md`](docs/oauth-api.md).
 
-<p align="center">
-  <a target="_blank" href="https://star-history.com/#jnsahaj/tweakcn&Date">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=jnsahaj/tweakcn&type=Date&theme=dark">
-      <img alt="GitHub Star History for jnsahaj/tweakcn" src="https://api.star-history.com/svg?repos=jnsahaj/tweakcn&type=Date">
-    </picture>
-  </a>
-</p>
+## Remarques d'exploitation
 
-<!-- GitAds-Verify: HX84XPI5OQ816367AROGJ9SROARUHQER -->
+- Le service charge les polices depuis Google Fonts (sortie Internet requise côté navigateur).
+- Schéma de base : migration initiale unique `drizzle/0000_init.sql`. Après un changement de `db/schema.ts` : `pnpm exec drizzle-kit generate`.
+- Le service n'est pas indexé par les moteurs de recherche (`noindex`).

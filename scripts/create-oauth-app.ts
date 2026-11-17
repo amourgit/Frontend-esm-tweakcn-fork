@@ -9,8 +9,8 @@
  *     [--description "My cool app"]
  */
 
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import { oauthApp } from "../db/schema";
 import { generateSecureToken, hashSecret } from "../lib/oauth";
 import { randomBytes } from "crypto";
@@ -18,6 +18,7 @@ import cuid from "cuid";
 import { config } from "dotenv";
 
 config({ path: ".env.local" });
+config();
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -46,8 +47,8 @@ async function main() {
     process.exit(1);
   }
 
-  const sql = neon(process.env.DATABASE_URL);
-  const db = drizzle({ client: sql });
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
+  const db = drizzle({ client: pool });
 
   const clientId = randomBytes(16).toString("hex");
   const clientSecret = generateSecureToken();
@@ -79,9 +80,8 @@ async function main() {
   console.log("  Client Secret: ", clientSecret);
   console.log("  Redirect URIs: ", redirectUris.join(", "));
   console.log("  Scopes:        ", scopes.join(", "));
-  console.log(
-    "\n  ⚠️  Save the client secret now — it cannot be retrieved later.\n"
-  );
+  console.log("\n  ⚠️  Save the client secret now — it cannot be retrieved later.\n");
+  await pool.end();
 }
 
 main().catch((err) => {

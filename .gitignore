@@ -51,3 +51,4 @@ public/r/themes
 # Gestionnaire de paquets : pnpm uniquement
 package-lock.json
 yarn.lock
+/dist
