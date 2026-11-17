@@ -163,7 +163,13 @@ Returns the authenticated user's profile. Requires `profile:read` scope.
 
 ### `GET /api/v1/themes`
 
-Returns all themes owned by the authenticated user. Requires `themes:read` scope.
+Returns all themes owned by the authenticated user, most recently modified first. Requires `themes:read` scope.
+
+| Query parameter | Description |
+|---|---|
+| `updated_since` | ISO 8601 date. Only themes created or modified **strictly after** this date are returned. Use the largest `updatedAt` you already hold to fetch only new versions. An invalid date returns `400`. |
+
+The response carries an `ETag`. Send it back in `If-None-Match`: if nothing changed, the API answers `304 Not Modified` with no body.
 
 ```json
 {
@@ -181,7 +187,7 @@ Returns all themes owned by the authenticated user. Requires `themes:read` scope
 
 ### `GET /api/v1/themes/:themeId`
 
-Returns a single theme by ID. Only returns themes owned by the authenticated user. Requires `themes:read` scope.
+Returns a single theme by ID. Only returns themes owned by the authenticated user. Requires `themes:read` scope. Supports `ETag` / `If-None-Match` like the list endpoint (`updatedAt` acts as the version marker).
 
 ## Scopes
 

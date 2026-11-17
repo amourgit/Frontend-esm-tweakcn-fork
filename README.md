@@ -44,6 +44,19 @@ docker run -d --name egen-theme-studio -p 3000:3000 \
 
 Pour une base distante qui impose SSL, ajouter `?sslmode=require` à `DATABASE_URL`.
 
+## Contrat de déploiement (EGEN Kernel)
+
+| Élément | Valeur |
+|---|---|
+| Image | `egen-theme-studio` (un build par `NEXT_PUBLIC_APP_URL`) |
+| Port | `3000` (variable `PORT`) |
+| Santé | `GET /api/health` → `200 {"status":"ok"}` / `503` si la base est injoignable |
+| Base | PostgreSQL 14+ via `DATABASE_URL` ; migrations appliquées au démarrage (`SKIP_MIGRATIONS=1` pour les désactiver) |
+| Variables obligatoires | `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BASE_URL` (+ au moins un fournisseur GitHub/Google) |
+| Données | uniquement la base ; le conteneur est sans état |
+| Utilisateur | non-root |
+| Intégration TokiForge | API `GET /api/v1/themes` (OAuth 2.0, `updated_since`, `ETag`) — le studio n'appelle jamais TokiForge, c'est TokiForge qui vient récupérer les versions |
+
 ## Connexion
 
 Le service utilise Better Auth avec **GitHub** et **Google** (pas d'email/mot de passe). URL de callback à déclarer chez le fournisseur :
