@@ -16,7 +16,6 @@ export type PostLoginActionType =
   | "AI_GENERATE_EDIT"
   | "AI_GENERATE_RETRY"
   | "SAVE_THEME_FOR_SHARE"
-  | "SAVE_THEME_FOR_V0"
   | "CHECKOUT"
   | "LIKE_THEME";
 

@@ -7,11 +7,12 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "next lint",
+    "preinstall": "node scripts/require-pnpm.mjs",
+    "prepare": "husky || true",
     "generate-theme-registry": "tsx scripts/generate-theme-registry.ts && tsx scripts/generate-registry.ts",
-    "minify-live-preview": "pnpm dlx terser public/live-preview.js -o public/live-preview.min.js -c -m",
-    "prebuild": "pnpm generate-theme-registry",
-    "postbuild": "pnpm minify-live-preview",
-    "prepare": "husky"
+    "minify-live-preview": "terser public/live-preview.js -o public/live-preview.min.js -c -m",
+    "prebuild": "pnpm run generate-theme-registry",
+    "postbuild": "pnpm minify-live-preview"
   },
   "dependencies": {
     "@base-ui-components/react": "1.0.0-beta.2",
@@ -88,9 +89,23 @@
     "prettier-plugin-tailwindcss": "^0.6.11",
     "raw-loader": "^4.0.2",
     "tailwindcss": "^4",
+    "terser": "^5.51.2",
     "tsx": "^4.19.3",
     "tw-animate-css": "^1.2.5",
     "typescript": "^5",
     "typescript-eslint": "^8.54.0"
+  },
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp"
+    ],
+    "ignoredBuiltDependencies": [
+      "msw"
+    ]
   }
 }

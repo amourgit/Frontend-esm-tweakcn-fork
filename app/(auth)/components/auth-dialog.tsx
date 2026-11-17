@@ -37,11 +37,6 @@ function getContextualCopy(actionType?: PostLoginActionType | null) {
         title: "Sign in to Share",
         description: "Sign in to save and share your theme with others",
       };
-    case "SAVE_THEME_FOR_V0":
-      return {
-        title: "Sign in to open in v0",
-        description: "Sign in to save your theme and open it in v0",
-      };
     case "AI_GENERATE_FROM_PAGE":
     case "AI_GENERATE_FROM_CHAT":
     case "AI_GENERATE_FROM_CHAT_SUGGESTION":

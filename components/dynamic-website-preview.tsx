@@ -27,6 +27,7 @@ import {
   XCircle,
 } from "lucide-react";
 import React from "react";
+import { getBaseUrl, PRODUCT_NAME } from "@/lib/site";
 
 /**
  * Dynamic Website Preview - Load and theme external websites
@@ -43,12 +44,13 @@ import React from "react";
  * external website theming via the embed script.
  */
 
-const SCRIPT_URL = "https://tweakcn.com/live-preview.min.js";
-
 // Code snippets for quick installation across common setups
-const HTML_SNIPPET = `<!-- Add inside <head> -->\n<script src="${SCRIPT_URL}"></script>`;
+function buildSnippets() {
+  const SCRIPT_URL = `${getBaseUrl()}/live-preview.min.js`;
 
-const NEXT_APP_SNIPPET = `// app/layout.tsx\nexport default function RootLayout({
+  const HTML_SNIPPET = `<!-- Add inside <head> -->\n<script src="${SCRIPT_URL}"></script>`;
+
+  const NEXT_APP_SNIPPET = `// app/layout.tsx\nexport default function RootLayout({
   children,
 }: {
   children: React.ReactNode
@@ -67,7 +69,7 @@ const NEXT_APP_SNIPPET = `// app/layout.tsx\nexport default function RootLayout(
   )
 }`;
 
-const NEXT_PAGES_SNIPPET = `// pages/_document.tsx\n
+  const NEXT_PAGES_SNIPPET = `// pages/_document.tsx\n
 import { Html, Head, Main, NextScript } from 'next/document';
 
 export default function Document() {
@@ -88,7 +90,7 @@ export default function Document() {
   );
 }`;
 
-const VITE_SNIPPET = `<!-- index.html -->\n<!doctype html>
+  const VITE_SNIPPET = `<!-- index.html -->\n<!doctype html>
 <html lang="en">
   <head>
     <script
@@ -101,7 +103,7 @@ const VITE_SNIPPET = `<!-- index.html -->\n<!doctype html>
   </body>
 </html>`;
 
-const REMIX_SNIPPET = `// app/root.tsx\nimport { Links, Meta, Outlet, Scripts } from "@remix-run/react";
+  const REMIX_SNIPPET = `// app/root.tsx\nimport { Links, Meta, Outlet, Scripts } from "@remix-run/react";
 
 export default function App() {
   return (
@@ -125,6 +127,9 @@ export default function App() {
     </html>
   );
 }`;
+
+  return { HTML_SNIPPET, NEXT_APP_SNIPPET, NEXT_PAGES_SNIPPET, VITE_SNIPPET, REMIX_SNIPPET };
+}
 
 type DynamicWebsitePreviewContextType = ReturnType<typeof useWebsitePreview> &
   Omit<ReturnType<typeof useIframeThemeInjector>, "ref">;
@@ -309,6 +314,9 @@ function Controls() {
 }
 
 function NoWebsitePreviewLoaded() {
+  const { HTML_SNIPPET, NEXT_APP_SNIPPET, NEXT_PAGES_SNIPPET, VITE_SNIPPET, REMIX_SNIPPET } =
+    buildSnippets();
+
   return (
     <div className="scrollbar-thin scrollbar-gutter-both relative flex size-full flex-col overflow-y-auto p-4 py-8">
       <div className="text-muted-foreground mx-auto my-auto flex w-full max-w-xl min-w-0 flex-col items-center justify-center space-y-6">
@@ -323,7 +331,7 @@ function NoWebsitePreviewLoaded() {
         </div>
 
         <h3 className="text-foreground text-center text-lg font-medium md:text-2xl">
-          Preview your Website in tweakcn
+          Preview your Website in {PRODUCT_NAME}
         </h3>
 
         <div className="text-muted-foreground space-y-2 text-left text-sm">

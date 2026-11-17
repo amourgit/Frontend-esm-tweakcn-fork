@@ -13,8 +13,8 @@ interface ThemeRegistry {
 function generateRegistry() {
   const registry: ThemeRegistry = {
     $schema: "https://ui.shadcn.com/schema/registry.json",
-    name: "tweakcn-theme-registry",
-    homepage: "https://tweakcn.com",
+    name: "egen-theme-registry",
+    homepage: (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, ""),
     items: [],
   };
 
@@ -25,9 +25,7 @@ function generateRegistry() {
       name,
       type: "registry:style",
       title: preset.label || name,
-      description: `A theme based on the ${
-        preset.label || name
-      } color palette.`,
+      description: `A theme based on the ${preset.label || name} color palette.`,
       css: registryItem.css,
       cssVars: registryItem.cssVars,
     };

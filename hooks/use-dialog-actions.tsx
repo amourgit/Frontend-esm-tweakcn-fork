@@ -9,10 +9,11 @@ import { authClient } from "@/lib/auth-client";
 import { useAuthStore } from "@/store/auth-store";
 import { useEditorStore } from "@/store/editor-store";
 import { useThemePresetStore } from "@/store/theme-preset-store";
+import { getBaseUrl } from "@/lib/site";
 import { parseCssInput } from "@/utils/parse-css-input";
 import { createContext, ReactNode, useContext, useState } from "react";
 
-type PendingAction = "share" | "v0" | null;
+type PendingAction = "share" | null;
 
 // Get contextual copy for the save dialog based on the pending action
 function getSaveDialogCopy(pendingAction: PendingAction) {
@@ -22,12 +23,6 @@ function getSaveDialogCopy(pendingAction: PendingAction) {
         title: "Save to share",
         description: "Save your theme first to share it with others.",
         ctaLabel: "Save & Share",
-      };
-    case "v0":
-      return {
-        title: "Save to open in v0",
-        description: "Save your theme first to open it in v0.",
-        ctaLabel: "Save & Open in v0",
       };
     default:
       return {};
@@ -55,9 +50,8 @@ interface DialogActionsContextType {
 
   // Handler functions
   handleCssImport: (css: string) => void;
-  handleSaveClick: (options?: { shareAfterSave?: boolean; openInV0AfterSave?: boolean }) => void;
+  handleSaveClick: (options?: { shareAfterSave?: boolean }) => void;
   handleShareClick: (id?: string) => Promise<void>;
-  handleOpenInV0: (id?: string, name?: string) => void;
   saveTheme: (themeName: string) => Promise<void>;
   handleUpdateExisting: () => Promise<void>;
 }
@@ -98,11 +92,6 @@ function useDialogActionsStore(): DialogActionsContextType {
     setPendingAction("share");
   });
 
-  usePostLoginAction("SAVE_THEME_FOR_V0", () => {
-    setSaveDialogOpen(true);
-    setPendingAction("v0");
-  });
-
   const handleCssImport = (css: string) => {
     const { lightColors, darkColors } = parseCssInput(css);
     const styles = {
@@ -122,11 +111,10 @@ function useDialogActionsStore(): DialogActionsContextType {
     });
   };
 
-  const handleSaveClick = (options?: { shareAfterSave?: boolean; openInV0AfterSave?: boolean }) => {
+  const handleSaveClick = (options?: { shareAfterSave?: boolean }) => {
     if (!session) {
-      let action: "SAVE_THEME" | "SAVE_THEME_FOR_SHARE" | "SAVE_THEME_FOR_V0" = "SAVE_THEME";
+      let action: "SAVE_THEME" | "SAVE_THEME_FOR_SHARE" = "SAVE_THEME";
       if (options?.shareAfterSave) action = "SAVE_THEME_FOR_SHARE";
-      if (options?.openInV0AfterSave) action = "SAVE_THEME_FOR_V0";
       openAuthDialog("signin", action);
       return;
     }
@@ -134,9 +122,6 @@ function useDialogActionsStore(): DialogActionsContextType {
     setSaveDialogOpen(true);
     if (options?.shareAfterSave) {
       setPendingAction("share");
-    }
-    if (options?.openInV0AfterSave) {
-      setPendingAction("v0");
     }
   };
 
@@ -152,9 +137,6 @@ function useDialogActionsStore(): DialogActionsContextType {
       applyThemePreset(theme?.id || themeState.preset || "default");
       if (pendingAction === "share") {
         handleShareClick(theme?.id);
-        setPendingAction(null);
-      } else if (pendingAction === "v0") {
-        openInV0(theme?.id);
         setPendingAction(null);
       }
       setTimeout(() => {
@@ -175,53 +157,19 @@ function useDialogActionsStore(): DialogActionsContextType {
     const currentPreset = presetId ? getPreset(presetId) : undefined;
 
     if (!currentPreset) {
-      setShareUrl(`https://tweakcn.com/editor/theme`);
+      setShareUrl(`${getBaseUrl()}/editor/theme`);
       setShareDialogOpen(true);
       return;
     }
 
     const isSavedPreset = !!currentPreset && currentPreset.source === "SAVED";
 
-
     const url = isSavedPreset
-      ? `https://tweakcn.com/themes/${id}`
-      : `https://tweakcn.com/editor/theme?theme=${id}`;
+      ? `${getBaseUrl()}/themes/${id}`
+      : `${getBaseUrl()}/editor/theme?theme=${id}`;
 
     setShareUrl(url);
     setShareDialogOpen(true);
-  };
-
-  // Internal helper to open v0 with a theme
-  const openInV0 = (id?: string, name?: string) => {
-    const presetId = id ?? themeState.preset;
-    if (!presetId) return;
-
-    const currentPreset = getPreset(presetId);
-    // If an explicit ID is passed but not found in presets, treat as a saved/database theme
-    const isSavedPreset = id ? true : !!currentPreset && currentPreset.source === "SAVED";
-    const themeName = name || currentPreset?.label || presetId;
-
-
-    const themeUrl = isSavedPreset
-      ? `https://tweakcn.com/r/v0/${presetId}`
-      : `https://tweakcn.com/r/v0/${presetId}.json`;
-    const title = `"${themeName}" from tweakcn`.slice(0, 32);
-    const v0Url = `https://v0.dev/chat/api/open?url=${encodeURIComponent(themeUrl)}&title=${encodeURIComponent(title)}`;
-    window.open(v0Url, "_blank", "noopener,noreferrer");
-  };
-
-  const handleOpenInV0 = (id?: string, name?: string) => {
-    if (id) {
-      openInV0(id, name);
-      return;
-    }
-
-    if (hasThemeChangedFromCheckpoint()) {
-      handleSaveClick({ openInV0AfterSave: true });
-      return;
-    }
-
-    openInV0();
   };
 
   const handleUpdateExisting = async () => {
@@ -263,7 +211,6 @@ function useDialogActionsStore(): DialogActionsContextType {
     handleCssImport,
     handleSaveClick,
     handleShareClick,
-    handleOpenInV0,
     saveTheme,
     handleUpdateExisting,
   };

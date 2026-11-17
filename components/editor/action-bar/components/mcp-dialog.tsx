@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/site";
 import {
   Tabs,
   TabsContent,
@@ -21,22 +22,23 @@ interface MCPDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const mcpConfig = {
+const getMcpConfig = () => ({
   mcpServers: {
     shadcn: {
       command: "npx",
       args: ["-y", "shadcn@canary", "registry:mcp"],
       env: {
-        REGISTRY_URL: "https://tweakcn.com/r/themes/registry.json",
+        REGISTRY_URL: `${getBaseUrl()}/r/themes/registry.json`,
       },
     },
   },
-};
+});
 
 export function MCPDialog({ open, onOpenChange }: MCPDialogProps) {
   const { hasCopied, copyToClipboard } = useCopyToClipboard();
+  const mcpConfig = getMcpConfig();
 
-  const handleCopy = async (config: typeof mcpConfig) => {
+  const handleCopy = async (config: ReturnType<typeof getMcpConfig>) => {
     copyToClipboard(JSON.stringify(config, null, 2));
   };
 

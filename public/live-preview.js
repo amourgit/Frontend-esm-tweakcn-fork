@@ -1,3 +1,12 @@
+// Origine du service qui héberge ce script (seule origine autorisée à piloter l'aperçu).
+const STUDIO_ORIGIN = (() => {
+  try {
+    return new URL(document.currentScript.src).origin;
+  } catch (_) {
+    return null;
+  }
+})();
+
 // ----- SHADCN SUPPORT -----
 const REQUIRED_SHADCN_VARS = [
   "--radius",
@@ -269,8 +278,7 @@ const TWEAKCN_MESSAGE = {
     // Verify the message has the expected structure
     if (!event.data || typeof event.data.type !== "string") return;
 
-    // TODO: Remove localhost once this is live
-    const ALLOWED_ORIGINS = ['https://tweakcn.com', 'http://localhost:3000'];
+    const ALLOWED_ORIGINS = [STUDIO_ORIGIN].filter(Boolean);
     if (!ALLOWED_ORIGINS.includes(event.origin)){
       sendMessageToParent({ type: TWEAKCN_MESSAGE.EMBED_ERROR, payload: { error: "Origin not allowed. Preview failed to establish the connection with tweakcn." } });
       return;

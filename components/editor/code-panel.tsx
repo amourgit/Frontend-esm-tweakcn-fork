@@ -1,3 +1,4 @@
+import { getBaseUrl } from "@/lib/site";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Copy, Check, Heart } from "lucide-react";
@@ -59,9 +60,7 @@ const CodePanel: React.FC<CodePanelProps> = ({ themeEditorState, themeId }) => {
   const layoutCode = generateLayoutCode(themeEditorState);
 
   const getRegistryCommand = (id: string, isSaved: boolean) => {
-    const url = isSaved
-      ? `https://tweakcn.com/r/themes/${id}`
-      : `https://tweakcn.com/r/themes/${id}.json`;
+    const url = isSaved ? `${getBaseUrl()}/r/themes/${id}` : `${getBaseUrl()}/r/themes/${id}.json`;
     switch (packageManager) {
       case "pnpm":
         return `pnpm dlx shadcn@latest add ${url}`;
