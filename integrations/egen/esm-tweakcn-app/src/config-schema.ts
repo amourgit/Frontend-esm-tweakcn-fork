@@ -16,6 +16,12 @@ export const configSchema = {
     _default: 'EGEN Theme Studio',
     _description: "Titre accessible de l'iframe (lecteurs d'écran).",
   },
+  navigation: {
+    _type: Type.String,
+    _default: 'history',
+    _description:
+      "Navigation partagée avec le Core : « history » (chemins, défaut), « hash » (#/chemin) ou « none » (désactivée). L'URL du Core reflète alors la page courante de l'app.",
+  },
   heightOffset: {
     _type: Type.Number,
     _default: 0,
@@ -27,5 +33,6 @@ export const configSchema = {
 export interface ConfigSchema {
   studioUrl: string;
   title: string;
+  navigation: 'history' | 'hash' | 'none';
   heightOffset: number;
 }

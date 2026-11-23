@@ -1,6 +1,6 @@
 {
   "name": "@civitas/esm-tweakcn-app",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "license": "MPL-2.0",
   "description": "EGEN Theme Studio dans EGEN : enveloppe d'application externe (iframe + configuration runtime) affichant une instance du service de thèmes dans la zone principale du Core.",
   "browser": "dist/civitas-esm-tweakcn-app.js",
@@ -64,7 +64,7 @@
   },
   "dependencies": {
     "@egen-civitas/esm-integration-utils": "^0.2.0",
-    "@egen-civitas/esm-nextjs-utils": "^0.2.0"
+    "@egen-civitas/esm-nextjs-utils": "^0.3.0"
   },
   "devDependencies": {
     "@egen-civitas/egen": "^3.0.0",

@@ -21,6 +21,7 @@ export interface NormalizedConfig {
   url: string;
   origin: string;
   title: string;
+  navigation: 'history' | 'hash' | 'none';
   heightOffset: number;
 }
 
@@ -67,7 +68,12 @@ export function normalizeConfig(raw: Partial<ConfigSchema> | undefined | null): 
     throw new StudioConfigError('« heightOffset » doit être un nombre entre 0 et 2000.');
   }
 
-  return { url: parsed.href, origin: parsed.origin, title, heightOffset: offset };
+  const navigation = raw?.navigation ?? 'history';
+  if (navigation !== 'history' && navigation !== 'hash' && navigation !== 'none') {
+    throw new StudioConfigError('« navigation » doit valoir « history », « hash » ou « none ».');
+  }
+
+  return { url: parsed.href, origin: parsed.origin, title, navigation, heightOffset: offset };
 }
 
 export interface StudioLifecycleOptions {
@@ -126,6 +132,8 @@ export function createStudioLifecycle(options: StudioLifecycleOptions): LifeCycl
         title: cfg.title,
         minHeight: MIN_HEIGHT,
         sessionFields: [],
+        // Navigation partagée : l'URL du Core reflète la page courante de l'app (la route = featureName de routes.json)
+        navigation: cfg.navigation === 'none' ? undefined : { route: options.featureName, mode: cfg.navigation },
       });
       await (embed.mount as (p: any) => Promise<void>)(props);
 

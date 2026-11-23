@@ -35,7 +35,7 @@ import { IFRAME_ALLOW, IFRAME_SANDBOX, MIN_HEIGHT, StudioConfigError, createStud
 describe('normalizeConfig', () => {
   it('accepte une URL https et en déduit l’origine', () => {
     const cfg = normalizeConfig({ studioUrl: 'https://design.exemple.org/' });
-    expect(cfg).toEqual({ url: 'https://design.exemple.org/', origin: 'https://design.exemple.org', title: 'EGEN Theme Studio', heightOffset: 0 });
+    expect(cfg).toEqual({ url: 'https://design.exemple.org/', origin: 'https://design.exemple.org', title: 'EGEN Theme Studio', navigation: 'history', heightOffset: 0 });
   });
 
   it('conserve un port et un chemin', () => {
@@ -171,6 +171,16 @@ describe('createStudioLifecycle', () => {
     url = 'https://b.exemple.org';
     await lc.mount(props());
     expect(embedCalls.map((c) => c.allowedOrigin)).toEqual(['https://a.exemple.org', 'https://b.exemple.org']);
+  });
+
+  it('navigation partagée : transmise au pont (route = featureName), désactivable, validée', async () => {
+    await lifecycle({ studioUrl: 'https://a.org' }).mount(props());
+    expect(embedCalls.at(-1).navigation).toEqual({ route: 'theme-studio', mode: 'history' });
+    await lifecycle({ studioUrl: 'https://a.org', navigation: 'hash' }).mount(props());
+    expect(embedCalls.at(-1).navigation).toEqual({ route: 'theme-studio', mode: 'hash' });
+    await lifecycle({ studioUrl: 'https://a.org', navigation: 'none' }).mount(props());
+    expect(embedCalls.at(-1).navigation).toBeUndefined();
+    expect(() => normalizeConfig({ studioUrl: 'https://a.org', navigation: 'x' as any })).toThrow(/navigation/);
   });
 
   it('un démontage sans montage préalable est sans effet', async () => {
