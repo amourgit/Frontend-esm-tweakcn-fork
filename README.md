@@ -8,6 +8,11 @@ Il permet de concevoir des thèmes (shadcn/ui, Tailwind CSS v4), de les prévisu
 > Retirés : page d'accueil et pages commerciales, paiement, génération IA, thèmes communautaires, export Figma, télémétrie, intégration v0.
 > Conservés : éditeur complet, thèmes prédéfinis, import/export, thèmes enregistrés, API `v1`, OAuth, registre shadcn.
 
+## Intégration au Core EGEN
+
+Dans le Core, EGEN Theme Studio est une **application externe** : il reste déployé à part (Docker + PostgreSQL) et le Core l'affiche dans une iframe via l'enveloppe `@civitas/esm-tweakcn-app` (`integrations/egen/esm-tweakcn-app/`, route `theme-studio`), sans aucun couplage de code. Voir [`EGEN.md`](EGEN.md) (en-tête `frame-ancestors` via `EGEN_FRAME_ANCESTORS`, navigation partagée, configuration du Core).
+Le Studio ne distribue pas les thèmes : c'est TokiForge qui vient récupérer les versions par l'API `v1` (voir « Contrat de déploiement »).
+
 ## Prérequis
 
 - Node.js ≥ 20.9 (`.nvmrc` : 22)
