@@ -9,3 +9,5 @@ Modifications apportées par CIVITAS EGEN (Apache-2.0, §4(b)) :
 - ouverture directe sur l'éditeur de thèmes ;
 - identité CIVITAS EGEN ;
 - déploiement par image Docker, supervisé par EGEN Kernel.
+- intégration dans le Core EGEN : EGEN_FRAME_ANCESTORS (embarquement iframe, middleware.ts, lib/frame-ancestors.ts)
+  et paquet d'application externe integrations/egen/esm-tweakcn-app (MPL-2.0 pour l'enveloppe).

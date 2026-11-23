@@ -1,0 +1,45 @@
+{
+  "$schema": "https://egen.alpha.vercel.com/routes.schema.json",
+  "pages": [
+    {
+      "component": "root",
+      "route": "theme-studio",
+      "online": true,
+      "offline": false
+    }
+  ],
+  "extensions": [
+    {
+      "name": "theme-studio-rail",
+      "slot": "shell-rail-left-slot",
+      "component": "railPanel",
+      "online": true,
+      "offline": false,
+      "order": 60,
+      "meta": {
+        "title": "EGEN Theme Studio",
+        "icon": "Palette",
+        "order": 60,
+        "global": true
+      }
+    },
+    {
+      "name": "theme-studio-nav-design",
+      "slot": "topbar-nav-slot",
+      "component": "navEntry",
+      "online": true,
+      "offline": false,
+      "order": 610,
+      "meta": {
+        "section": "theme-studio",
+        "sectionLabel": "EGEN Theme Studio",
+        "group": "conception",
+        "groupLabel": "Conception",
+        "label": "Thèmes et design tokens",
+        "description": "Ouvrir EGEN Theme Studio : éditeur de thèmes",
+        "icon": "Palette",
+        "route": "theme-studio"
+      }
+    }
+  ]
+}

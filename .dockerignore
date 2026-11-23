@@ -11,3 +11,4 @@ out
 docs
 *.md
 !README.md
+integrations
