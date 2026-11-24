@@ -72,8 +72,41 @@ export const themeStylesSchema = z.object({
   dark: themeStylePropsSchema,
 });
 
+/**
+ * Schémas de VALIDATION à la frontière (server actions) : identiques aux schémas ci-dessus pour
+ * les clés connues, mais ils ne détruisent plus rien.
+ *
+ * `z.object` supprime par défaut les clés inconnues : un thème enrichi (tokens EGEN) perdait donc
+ * tout ce que tweakcn ne connaissait pas au moment de la sauvegarde. Ici :
+ *  - `light` / `dark` acceptent toute clé supplémentaire de type chaîne (couleurs, longueurs,
+ *    valeurs CSS) ;
+ *  - `tokens` porte les tokens indépendants du mode (typographie, layout, mouvement, z-index…) ;
+ *    c'est un objet JSON libre, borné en taille.
+ * Les types TypeScript exportés (ThemeStyleProps, ThemeStyles) restent dérivés des schémas stricts
+ * pour garder `keyof ThemeStyleProps` précis dans tout l'éditeur.
+ */
+export const MAX_THEME_STYLES_BYTES = 256 * 1024;
+
+export const themeStylePropsInputSchema = themeStylePropsSchema.catchall(z.string());
+
+export const themeTokensSchema = z.record(z.string(), z.unknown());
+
+export const themeStylesInputSchema = z
+  .object({
+    light: themeStylePropsInputSchema,
+    dark: themeStylePropsInputSchema,
+    tokens: themeTokensSchema.optional(),
+  })
+  .refine((styles) => JSON.stringify(styles).length <= MAX_THEME_STYLES_BYTES, {
+    message: `Theme styles too large (max ${MAX_THEME_STYLES_BYTES / 1024} KB)`,
+  });
+
 export type ThemeStyleProps = z.infer<typeof themeStylePropsSchema>;
-export type ThemeStyles = z.infer<typeof themeStylesSchema>;
+export type ThemeTokens = z.infer<typeof themeTokensSchema>;
+export type ThemeStyles = z.infer<typeof themeStylesSchema> & {
+  /** Tokens indépendants du mode (optionnels) — voir `themeStylesInputSchema`. */
+  tokens?: ThemeTokens;
+};
 
 export const themeStylePropsSchemaWithoutSpacing = themeStylePropsSchema.omit({
   spacing: true,

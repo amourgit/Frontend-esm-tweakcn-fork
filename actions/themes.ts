@@ -7,7 +7,7 @@ import { eq, and } from "drizzle-orm";
 import cuid from "cuid";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { themeStylesSchema, type ThemeStyles } from "@/types/theme";
+import { themeStylesInputSchema, type ThemeStyles } from "@/types/theme";
 import { cache } from "react";
 import {
   UnauthorizedError,
@@ -45,13 +45,13 @@ function logError(error: Error, context: Record<string, any>) {
 
 const createThemeSchema = z.object({
   name: z.string().min(1, "Theme name cannot be empty").max(50, "Theme name too long"),
-  styles: themeStylesSchema,
+  styles: themeStylesInputSchema,
 });
 
 const updateThemeSchema = z.object({
   id: z.string().min(1, "Theme ID required"),
   name: z.string().min(1, "Theme name cannot be empty").max(50, "Theme name too long").optional(),
-  styles: themeStylesSchema.optional(),
+  styles: themeStylesInputSchema.optional(),
 });
 
 // Layer 1: Clean server actions with proper error handling
