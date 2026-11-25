@@ -146,6 +146,35 @@ const ContrastChecker = ({ currentStyles }: ContrastCheckerProps) => {
       label: "Sidebar Accent",
       category: "functional",
     },
+
+    // Extended skeleton pairs (derived from the theme unless customized)
+    ...(
+      [
+        ["success", "Success", "success-foreground", "success", "interactive"],
+        ["warning", "Warning", "warning-foreground", "warning", "interactive"],
+        ["info", "Info", "info-foreground", "info", "interactive"],
+        ["success-subtle", "Success Subtle", "success-subtle-foreground", "success-subtle", "functional"],
+        ["warning-subtle", "Warning Subtle", "warning-subtle-foreground", "warning-subtle", "functional"],
+        ["info-subtle", "Info Subtle", "info-subtle-foreground", "info-subtle", "functional"],
+        ["destructive-subtle", "Destructive Subtle", "destructive-subtle-foreground", "destructive-subtle", "functional"],
+        ["header", "Header", "header-foreground", "header", "content"],
+        ["footer", "Footer", "footer-foreground", "footer", "content"],
+        ["tooltip", "Tooltip", "tooltip-foreground", "tooltip", "functional"],
+        ["surface-inverse", "Inverse Surface", "surface-inverse-foreground", "surface-inverse", "content"],
+        ["link", "Link on Background", "link", "background", "interactive"],
+        ["selection", "Selection", "selection-foreground", "selection", "functional"],
+        ["highlight", "Highlight", "highlight-foreground", "highlight", "functional"],
+        ["code", "Code", "code-foreground", "code-background", "content"],
+      ] as const
+    ).map(([id, label, fg, bg, category]) => ({
+      id,
+      foregroundId: fg as keyof ThemeStyleProps,
+      backgroundId: bg as keyof ThemeStyleProps,
+      foreground: currentStyles?.[fg as keyof ThemeStyleProps],
+      background: currentStyles?.[bg as keyof ThemeStyleProps],
+      label,
+      category: category as ColorCategory,
+    })),
   ];
 
   const validColorPairsToCheck = colorPairsToCheck.filter(

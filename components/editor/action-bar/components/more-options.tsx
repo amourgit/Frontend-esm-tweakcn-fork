@@ -1,5 +1,7 @@
 import McpIcon from "@/assets/mcp.svg";
 import ContrastChecker from "@/components/editor/contrast-checker";
+import { resolveTheme } from "@/utils/tokens/resolve";
+import type { ThemeStyleProps } from "@/types/theme";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -34,7 +36,9 @@ export function MoreOptions({ ...props }: MoreOptionsProps) {
             </Button>
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={(e) => e.preventDefault()} asChild>
-            <ContrastChecker currentStyles={themeState.styles[themeState.currentMode]} />
+            <ContrastChecker
+              currentStyles={resolveTheme(themeState.styles)[themeState.currentMode] as ThemeStyleProps}
+            />
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

@@ -4,6 +4,10 @@ import { AlertCircle } from "lucide-react";
 import React from "react";
 
 import { ColorsTabContent } from "@/components/editor/colors-tab-content";
+import { TokensTabContent } from "@/components/editor/tokens-tab-content";
+import type { TokenValue } from "@/components/editor/token-control";
+import { resolveTheme } from "@/utils/tokens/resolve";
+import { getOverriddenColorKeys, resetColorKeys, resetTokenPaths, setToken } from "@/utils/tokens/edit";
 import ControlSection from "@/components/editor/control-section";
 import { FontPicker } from "@/components/editor/font-picker";
 import HslAdjustmentControls from "@/components/editor/hsl-adjustment-controls";
@@ -64,6 +68,26 @@ const ThemeControlPanel = ({ styles, currentMode, onChange }: ThemeControlPanelP
     [onChange, styles, currentMode, currentStyles]
   );
 
+  // Thème résolu (squelette + dérivations + overrides) : ce que voient l'aperçu et les exports.
+  const resolved = React.useMemo(() => resolveTheme(styles), [styles]);
+
+  const overriddenKeys = React.useMemo(() => getOverriddenColorKeys(styles, currentMode), [styles, currentMode]);
+
+  const resetStyleKeys = React.useCallback(
+    (keys: string[]) => onChange(resetColorKeys(styles, currentMode, keys)),
+    [onChange, styles, currentMode]
+  );
+
+  const updateToken = React.useCallback(
+    (path: string[], value: TokenValue) => onChange(setToken(styles, path, value)),
+    [onChange, styles]
+  );
+
+  const resetTokens = React.useCallback(
+    (paths: string[][]) => onChange(resetTokenPaths(styles, paths)),
+    [onChange, styles]
+  );
+
   const updateStyles = React.useCallback(
     (updates: Partial<ThemeStyleProps>) => {
       onChange({
@@ -100,6 +124,7 @@ const ThemeControlPanel = ({ styles, currentMode, onChange }: ThemeControlPanelP
               <TabsTriggerPill value="colors">Colors</TabsTriggerPill>
               <TabsTriggerPill value="typography">Typography</TabsTriggerPill>
               <TabsTriggerPill value="other">Other</TabsTriggerPill>
+              <TabsTriggerPill value="tokens">Tokens</TabsTriggerPill>
             </TabsList>
           </HorizontalScrollArea>
 
@@ -108,6 +133,18 @@ const ThemeControlPanel = ({ styles, currentMode, onChange }: ThemeControlPanelP
               currentStyles={currentStyles}
               updateStyle={updateStyle}
               updateStyles={updateStyles}
+              resolvedStyles={resolved[currentMode]}
+              overriddenKeys={overriddenKeys}
+              resetStyleKeys={resetStyleKeys}
+            />
+          </TabsContent>
+
+          <TabsContent value="tokens" className="mt-1 size-full overflow-hidden">
+            <TokensTabContent
+              resolvedTokens={resolved.tokens}
+              overrides={styles.tokens}
+              updateToken={updateToken}
+              resetTokens={resetTokens}
             />
           </TabsContent>
 

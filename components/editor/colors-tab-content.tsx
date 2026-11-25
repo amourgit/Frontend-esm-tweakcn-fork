@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshCw, Search, X } from "lucide-react";
+import { RefreshCw, RotateCcw, Search, X } from "lucide-react";
 import ColorPicker from "@/components/editor/color-picker";
 import ControlSection from "@/components/editor/control-section";
 import { Button } from "@/components/ui/button";
@@ -10,18 +10,33 @@ import { TooltipWrapper } from "@/components/tooltip-wrapper";
 import { cn } from "@/lib/utils";
 import { FocusColorId } from "@/store/color-control-focus-store";
 import { ThemeStyleProps } from "@/types/theme";
+import { DERIVED_COLORS, EXTENDED_COLOR_GROUPS } from "@/utils/tokens/derive";
 
 type ColorEntry = {
   key: keyof ThemeStyleProps;
   name: FocusColorId;
   label: string;
+  /** Couleur étendue du squelette EGEN : dérivée du thème tant qu'elle n'est pas personnalisée. */
+  extended?: boolean;
 };
 
 type ColorGroup = {
   title: string;
   expanded?: boolean;
   colors: ColorEntry[];
+  extended?: boolean;
 };
+
+const EXTENDED_COLOR_ENTRIES: ColorGroup[] = EXTENDED_COLOR_GROUPS.map((group) => ({
+  title: group.title,
+  extended: true,
+  colors: DERIVED_COLORS.filter((d) => d.group === group.id).map((d) => ({
+    key: d.key as keyof ThemeStyleProps,
+    name: d.key,
+    label: d.label,
+    extended: true,
+  })),
+}));
 
 const COLOR_GROUPS: ColorGroup[] = [
   {
@@ -136,9 +151,21 @@ interface ColorsTabContentProps {
   currentStyles: ThemeStyleProps;
   updateStyle: <K extends keyof ThemeStyleProps>(key: K, value: ThemeStyleProps[K]) => void;
   updateStyles: (updates: Partial<ThemeStyleProps>) => void;
+  /** Valeurs résolues du mode courant (inclut les couleurs étendues dérivées). */
+  resolvedStyles: Record<string, string>;
+  /** Couleurs étendues explicitement personnalisées par le thème (mode courant). */
+  overriddenKeys: ReadonlySet<string>;
+  resetStyleKeys: (keys: string[]) => void;
 }
 
-export function ColorsTabContent({ currentStyles, updateStyle, updateStyles }: ColorsTabContentProps) {
+export function ColorsTabContent({
+  currentStyles,
+  updateStyle,
+  updateStyles,
+  resolvedStyles,
+  overriddenKeys,
+  resetStyleKeys,
+}: ColorsTabContentProps) {
   const [search, setSearch] = useState("");
   const [sidebarSyncEnabled, setSidebarSyncEnabled] = useState(false);
 
@@ -185,10 +212,11 @@ export function ColorsTabContent({ currentStyles, updateStyle, updateStyles }: C
   );
 
   const filteredGroups = useMemo(() => {
-    if (!search.trim()) return COLOR_GROUPS;
+    const allGroups = [...COLOR_GROUPS, ...EXTENDED_COLOR_ENTRIES];
+    if (!search.trim()) return allGroups;
 
     const query = search.toLowerCase();
-    return COLOR_GROUPS.map((group) => ({
+    return allGroups.map((group) => ({
       ...group,
       expanded: true,
       colors: group.colors.filter(
@@ -233,7 +261,21 @@ export function ColorsTabContent({ currentStyles, updateStyle, updateStyles }: C
             title={group.title}
             expanded={group.expanded}
             headerAction={
-              group.title === "Sidebar" ? (
+              group.extended ? (
+                group.colors.some((c) => overriddenKeys.has(c.name)) ? (
+                  <TooltipWrapper label="Reset this group to automatic values" asChild>
+                    <button
+                      type="button"
+                      onClick={() => resetStyleKeys(group.colors.map((c) => c.name))}
+                      className="text-muted-foreground hover:text-foreground flex items-center gap-1 px-1 text-[11px]"
+                      aria-label={`Reset ${group.title}`}
+                    >
+                      <RotateCcw className="size-3" />
+                      {group.colors.filter((c) => overriddenKeys.has(c.name)).length}
+                    </button>
+                  </TooltipWrapper>
+                ) : undefined
+              ) : group.title === "Sidebar" ? (
                 <TooltipWrapper
                   label="Sync sidebar colors to their base counterparts (e.g. sidebar background → background)"
                   asChild
@@ -263,15 +305,45 @@ export function ColorsTabContent({ currentStyles, updateStyle, updateStyles }: C
               ) : undefined
             }
           >
-            {group.colors.map((color) => (
-              <ColorPicker
-                key={color.name}
-                name={color.name}
-                color={currentStyles[color.key] as string}
-                onChange={(value) => wrappedUpdateStyle(color.key, value as ThemeStyleProps[typeof color.key])}
-                label={color.label}
-              />
-            ))}
+            {group.colors.map((color) =>
+              color.extended ? (
+                <div key={color.name} className="flex items-end gap-1" data-extended-color={color.name}>
+                  <div className="min-w-0 flex-1">
+                    <ColorPicker
+                      name={color.name}
+                      color={resolvedStyles[color.name] ?? ""}
+                      onChange={(value) => updateStyle(color.key, value as ThemeStyleProps[typeof color.key])}
+                      label={color.label}
+                    />
+                  </div>
+                  <div className="mb-1.5 w-12 shrink-0 text-right">
+                    {overriddenKeys.has(color.name) ? (
+                      <TooltipWrapper label="Customized — click to return to the automatic value" asChild>
+                        <button
+                          type="button"
+                          onClick={() => resetStyleKeys([color.name])}
+                          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5 text-[10px]"
+                          aria-label={`Reset ${color.label}`}
+                        >
+                          <RotateCcw className="size-3" />
+                          Custom
+                        </button>
+                      </TooltipWrapper>
+                    ) : (
+                      <span className="text-muted-foreground/70 text-[10px]">Auto</span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <ColorPicker
+                  key={color.name}
+                  name={color.name}
+                  color={currentStyles[color.key] as string}
+                  onChange={(value) => wrappedUpdateStyle(color.key, value as ThemeStyleProps[typeof color.key])}
+                  label={color.label}
+                />
+              )
+            )}
           </ControlSection>
         ))}
       </ScrollArea>

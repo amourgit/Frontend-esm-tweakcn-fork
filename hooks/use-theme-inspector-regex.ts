@@ -1,11 +1,13 @@
 "use client";
 
 import { defaultLightThemeStyles } from "@/config/theme";
+import { DERIVED_COLOR_KEYS } from "@/utils/tokens/derive";
 
 const createThemeClassRegex = () => {
   const excludePrefixes = ["font-", "shadow-", "letter-spacing", "spacing", "radius"];
 
-  const tokens = Object.keys(defaultLightThemeStyles).filter((token) => {
+  // Clés tweakcn + couleurs étendues du squelette EGEN (bg-success, text-link, border-border-strong…)
+  const tokens = [...Object.keys(defaultLightThemeStyles), ...DERIVED_COLOR_KEYS].filter((token) => {
     return !excludePrefixes.some((prefix) => token.startsWith(prefix));
   });
 

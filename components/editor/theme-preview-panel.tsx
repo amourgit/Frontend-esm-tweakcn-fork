@@ -21,6 +21,7 @@ import { useQueryState } from "nuqs";
 import { lazy } from "react";
 import InspectorOverlay from "./inspector-overlay";
 import ColorPreview from "./theme-preview/color-preview";
+import TokensPreview from "./theme-preview/tokens-preview";
 import ExamplesPreviewContainer from "./theme-preview/examples-preview-container";
 import TabsTriggerPill from "./theme-preview/tabs-trigger-pill";
 
@@ -94,6 +95,9 @@ const ThemePreviewPanel = ({ styles, currentMode }: ThemeEditorPreviewProps) => 
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleTabChange("colors")}>
                     Color Palette
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleTabChange("tokens")}>
+                    Design Tokens
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -216,6 +220,12 @@ const ThemePreviewPanel = ({ styles, currentMode }: ThemeEditorPreviewProps) => 
                     <TypographyDemo />
                   </ScrollArea>
                 </ExamplesPreviewContainer>
+              </TabsContent>
+
+              <TabsContent value="tokens" className="m-0 size-full">
+                <ScrollArea className="size-full">
+                  <TokensPreview styles={styles} />
+                </ScrollArea>
               </TabsContent>
 
               <TabsContent value="colors" className="m-0 size-full">

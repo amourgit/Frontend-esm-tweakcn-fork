@@ -34,7 +34,9 @@ export type FocusColorId =
   | "sidebar-accent"
   | "sidebar-accent-foreground"
   | "sidebar-border"
-  | "sidebar-ring";
+  | "sidebar-ring"
+  // Couleurs étendues du squelette EGEN (voir utils/tokens/derive.ts) : toute clé est acceptée.
+  | (string & {});
 
 interface ColorRefEntry {
   ref: HTMLElement | null;

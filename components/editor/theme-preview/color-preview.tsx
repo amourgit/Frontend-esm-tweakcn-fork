@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { FocusColorId, useColorControlFocus } from "@/store/color-control-focus-store";
 import { ThemeEditorPreviewProps } from "@/types/theme";
 import { SquarePen } from "lucide-react";
+import { useMemo } from "react";
+import { DERIVED_COLORS, EXTENDED_COLOR_GROUPS } from "@/utils/tokens/derive";
+import { resolveTheme } from "@/utils/tokens/resolve";
 
 interface ColorPreviewProps {
   styles: ThemeEditorPreviewProps["styles"];
@@ -42,6 +45,7 @@ function ColorPreviewItem({ label, color, name }: { label: string; color: string
 }
 
 const ColorPreview = ({ styles, currentMode }: ColorPreviewProps) => {
+  const resolved = useMemo(() => resolveTheme(styles), [styles]);
   if (!styles || !styles[currentMode]) {
     return null;
   }
@@ -206,6 +210,23 @@ const ColorPreview = ({ styles, currentMode }: ColorPreviewProps) => {
           />
         </div>
       </div>
+
+      {/* Extended colors (EGEN skeleton): derived from the theme unless customized */}
+      {EXTENDED_COLOR_GROUPS.map((group) => (
+        <div key={group.id} className="space-y-4 @max-3xl:space-y-2" data-extended-group={group.id}>
+          <h3 className="text-muted-foreground text-sm font-semibold">{group.title}</h3>
+          <div className="grid grid-cols-1 gap-4 @sm:grid-cols-2 @2xl:grid-cols-3 @4xl:grid-cols-4">
+            {DERIVED_COLORS.filter((d) => d.group === group.id).map((d) => (
+              <ColorPreviewItem
+                key={d.key}
+                label={d.label}
+                color={resolved[currentMode][d.key]}
+                name={d.key}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 };

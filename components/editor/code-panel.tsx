@@ -29,6 +29,7 @@ import {
 import { useThemePresetStore } from "@/store/theme-preset-store";
 import { useDialogActions } from "@/hooks/use-dialog-actions";
 import { ColorFormat } from "@/types";
+import { buildEgenTokensDocument } from "@/utils/tokens/export-json";
 
 interface CodePanelProps {
   themeEditorState: ThemeEditorState;
@@ -45,6 +46,8 @@ const CodePanel: React.FC<CodePanelProps> = ({ themeEditorState, themeId }) => {
   const colorFormat = usePreferencesStore((state) => state.colorFormat);
   const tailwindVersion = usePreferencesStore((state) => state.tailwindVersion);
   const packageManager = usePreferencesStore((state) => state.packageManager);
+  const tokenScope = usePreferencesStore((state) => state.tokenScope);
+  const setTokenScope = usePreferencesStore((state) => state.setTokenScope);
   const setColorFormat = usePreferencesStore((state) => state.setColorFormat);
   const setTailwindVersion = usePreferencesStore((state) => state.setTailwindVersion);
   const setPackageManager = usePreferencesStore((state) => state.setPackageManager);
@@ -55,12 +58,28 @@ const CodePanel: React.FC<CodePanelProps> = ({ themeEditorState, themeId }) => {
   );
   const getAvailableColorFormats = usePreferencesStore((state) => state.getAvailableColorFormats);
 
-  const code = generateThemeCode(themeEditorState, colorFormat, tailwindVersion);
-  const configCode = generateTailwindConfigCode(themeEditorState, colorFormat, tailwindVersion);
+  const code = generateThemeCode(themeEditorState, colorFormat, tailwindVersion, { scope: tokenScope });
+  const configCode = generateTailwindConfigCode(themeEditorState, colorFormat, tailwindVersion, {
+    scope: tokenScope,
+  });
+  const tokensJson = useMemo(
+    () =>
+      JSON.stringify(
+        buildEgenTokensDocument(themeEditorState.styles, preset ? { name: preset } : {}),
+        null,
+        2
+      ),
+    [themeEditorState.styles, preset]
+  );
   const layoutCode = generateLayoutCode(themeEditorState);
 
   const getRegistryCommand = (id: string, isSaved: boolean) => {
-    const url = isSaved ? `${getBaseUrl()}/r/themes/${id}` : `${getBaseUrl()}/r/themes/${id}.json`;
+    const complete = tokenScope === "complete";
+    const url = complete
+      ? `${getBaseUrl()}/r/themes/${id}.complete.json`
+      : isSaved
+        ? `${getBaseUrl()}/r/themes/${id}`
+        : `${getBaseUrl()}/r/themes/${id}.json`;
     switch (packageManager) {
       case "pnpm":
         return `pnpm dlx shadcn@latest add ${url}`;
@@ -194,6 +213,18 @@ const CodePanel: React.FC<CodePanelProps> = ({ themeEditorState, themeId }) => {
             <SelectItem value="4">Tailwind v4</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={tokenScope} onValueChange={(value: "standard" | "complete") => setTokenScope(value)}>
+          <SelectTrigger
+            className="bg-muted/50 w-fit gap-1 border-none outline-hidden focus:border-none focus:ring-transparent"
+            aria-label="Token scope"
+          >
+            <SelectValue className="focus:ring-transparent" />
+          </SelectTrigger>
+          <SelectContent className="z-99999">
+            <SelectItem value="complete">Complete (EGEN tokens)</SelectItem>
+            <SelectItem value="standard">Standard (shadcn)</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={colorFormat} onValueChange={(value: ColorFormat) => setColorFormat(value)}>
           <SelectTrigger className="bg-muted/50 w-fit gap-1 border-none outline-hidden focus:border-none focus:ring-transparent">
             <SelectValue className="focus:ring-transparent" />
@@ -223,6 +254,9 @@ const CodePanel: React.FC<CodePanelProps> = ({ themeEditorState, themeId }) => {
                 tailwind.config.ts
               </TabsTrigger>
             )}
+            <TabsTrigger value="egen-tokens.json" className="h-7 px-3 text-sm font-medium">
+              egen-tokens.json
+            </TabsTrigger>
             <TabsTrigger value="layout.tsx" className="h-7 px-3 text-sm font-medium">
               layout.tsx (Next.js)
             </TabsTrigger>
@@ -239,7 +273,9 @@ const CodePanel: React.FC<CodePanelProps> = ({ themeEditorState, themeId }) => {
                     ? code
                     : activeTab === "layout.tsx"
                       ? layoutCode
-                      : configCode
+                      : activeTab === "egen-tokens.json"
+                        ? tokensJson
+                        : configCode
                 )
               }
               className="h-8"
@@ -281,6 +317,12 @@ const CodePanel: React.FC<CodePanelProps> = ({ themeEditorState, themeId }) => {
             </ScrollArea>
           </TabsContent>
         )}
+
+        <TabsContent value="egen-tokens.json" className="overflow-hidden">
+          <ScrollArea className="relative h-full">
+            <CodeBlock code={tokensJson} language="json" className="h-full rounded-none border-0" />
+          </ScrollArea>
+        </TabsContent>
 
         <TabsContent value="layout.tsx" className="overflow-hidden">
           <ScrollArea className="relative h-full">

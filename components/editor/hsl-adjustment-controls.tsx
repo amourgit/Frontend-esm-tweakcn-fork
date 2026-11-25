@@ -5,7 +5,8 @@ import { SliderWithInput } from "./slider-with-input";
 import { useEditorStore } from "../../store/editor-store";
 import { COMMON_STYLES, defaultThemeState } from "../../config/theme";
 import { ThemeEditorState } from "@/types/editor";
-import { converter, formatHex, Hsl } from "culori";
+import { converter, formatHex, formatHex8, Hsl } from "culori";
+import { flatten, setPath, type TokenTree } from "@/utils/tokens/object-path";
 import { debounce } from "@/utils/debounce";
 import { isDeepEqual } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,9 @@ function adjustColorByHsl(
   };
 
   const out = converter("hsl")(adjustedHsl as Hsl);
-  return formatHex(out);
+  // Les couleurs translucides (overlay, scrim…) gardent leur alpha : hex à 8 chiffres.
+  const alpha = hsl?.alpha;
+  return alpha !== undefined && alpha < 1 ? formatHex8({ ...out, alpha }) : formatHex(out);
 }
 
 // Preset HSL adjustment values
@@ -126,6 +129,26 @@ const HslAdjustmentControls = () => {
           };
         }, {});
 
+      // Les rampes de palette personnalisées (tokens.palette) suivent le même ajustement ;
+      // les autres tokens et les valeurs dérivées (qui suivent les couleurs de base) sont conservés.
+      let tokens = themeState.styles.tokens as TokenTree | undefined;
+      const basePalette = (state.styles.tokens as TokenTree | undefined)?.palette;
+      if (basePalette) {
+        for (const { path, value } of flatten(basePalette)) {
+          if (typeof value !== "string") continue;
+          tokens = setPath(
+            tokens,
+            ["palette", ...path],
+            adjustColorByHsl(
+              value,
+              adjustments.hueShift,
+              adjustments.saturationScale,
+              adjustments.lightnessScale
+            )
+          );
+        }
+      }
+
       // Update theme state with all changes
       setThemeState({
         ...themeState,
@@ -133,6 +156,7 @@ const HslAdjustmentControls = () => {
         styles: {
           light: { ...lightStyles, ...updatedLightStyles },
           dark: { ...darkStyles, ...updatedDarkStyles },
+          ...(tokens ? { tokens } : {}),
         },
       });
     }, 10);
