@@ -4,6 +4,7 @@ import { colorFormatter } from "./color-converter";
 import { setShadowVariables } from "./shadows";
 import { applyStyleToElement } from "./apply-style-to-element";
 import { COMMON_STYLES } from "@/config/theme";
+import { getExtendedCssVariableMap } from "./tokens/css-vars";
 
 type Theme = "dark" | "light";
 
@@ -50,6 +51,17 @@ const applyThemeColors = (
   });
 };
 
+// Couleurs étendues (dérivées ou personnalisées) + tokens du squelette EGEN.
+// `style.setProperty` plutôt que `applyStyleToElement` : ~470 variables à chaque changement.
+const applyExtendedVariables = (root: HTMLElement, themeStyles: ThemeStyles, mode: Theme) => {
+  const vars = getExtendedCssVariableMap(themeStyles, mode, (color) =>
+    colorFormatter(color, "hsl", "4")
+  );
+  for (const [name, value] of Object.entries(vars)) {
+    root.style.setProperty(name, value);
+  }
+};
+
 // Exported function to apply theme styles to an element
 export const applyThemeToElement = (
   themeState: ThemeEditorState,
@@ -66,4 +78,6 @@ export const applyThemeToElement = (
   applyThemeColors(rootElement, themeStyles, mode);
   // Apply shadow variables
   setShadowVariables(themeState);
+  // Apply extended colors and tokens (typography, layout, motion…)
+  applyExtendedVariables(rootElement, themeStyles, mode);
 };

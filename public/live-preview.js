@@ -232,7 +232,17 @@ function applyThemeStyles(root, themeStyles, mode) {
   overrideShadowClass(root, themeStyles, mode)
 };
 
-function applyTheme(themeState) {
+function applyCssVars(root, cssVars) {
+  // Variables résolues du squelette étendu (couleurs étendues + tokens) : { "--nom": valeur }
+  if (!cssVars || typeof cssVars !== "object") return;
+  for (const [name, value] of Object.entries(cssVars)) {
+    if (typeof name === "string" && name.indexOf("--") === 0 && typeof value === "string") {
+      root.style.setProperty(name, value);
+    }
+  }
+}
+
+function applyTheme(themeState, cssVars) {
   const root = document.documentElement;
   if (!root || !themeState || !themeState.styles) {
     console.warn("Theme Studio Embed: Missing root element or theme styles.");
@@ -241,6 +251,7 @@ function applyTheme(themeState) {
 
   const { currentMode: mode, styles: themeStyles } = themeState; 
   applyThemeStyles(root, themeStyles, mode);
+  applyCssVars(root, cssVars);
 };
 
 // ----- MESSAGE SENDING -----
@@ -301,7 +312,7 @@ const STUDIO_MESSAGE = {
 
       case STUDIO_MESSAGE.THEME_UPDATE:
         if (payload && payload.themeState) {
-          applyTheme(payload.themeState);
+          applyTheme(payload.themeState, payload.cssVars);
           sendMessageToParent({ type: STUDIO_MESSAGE.THEME_APPLIED });
         }
         break;

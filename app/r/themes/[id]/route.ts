@@ -9,7 +9,11 @@ import { ThemeStyles } from "@/types/theme";
 export const dynamic = "force-static";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+  const { id: rawId } = await params;
+  // `<id>.json` : item shadcn standard ; `<id>.complete.json` : + squelette EGEN (couleurs étendues, tokens)
+  const withoutExt = rawId.replace(/\.json$/, "");
+  const scope = withoutExt.endsWith(".complete") ? "complete" : "standard";
+  const id = scope === "complete" ? withoutExt.slice(0, -".complete".length) : rawId;
 
   try {
     // First, check if this is a built-in theme
@@ -27,7 +31,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       themeStyles = theme.styles;
     }
 
-    const generatedRegistryItem = generateThemeRegistryItemFromStyles(themeName, themeStyles);
+    const generatedRegistryItem = generateThemeRegistryItemFromStyles(themeName, themeStyles, scope);
 
     // Validate the generated registry item against the official shadcn registry item schema
     // https://ui.shadcn.com/docs/registry/registry-item-json

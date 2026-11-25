@@ -6,6 +6,13 @@ import { ThemeStyleProps, ThemeStyles } from "@/types/theme";
 import { colorFormatter } from "@/utils/color-converter";
 import { getShadowMap } from "@/utils/shadows";
 import { getPresetThemeStyles } from "@/utils/theme-preset-helper";
+import { getExtendedColorVars, getTokenVars } from "@/utils/tokens/css-vars";
+
+/**
+ * - `standard` : item shadcn historique (compatible `npx shadcn add`), inchangé.
+ * - `complete` : + couleurs étendues du squelette EGEN (cssVars.light/dark) et tokens (css).
+ */
+export type RegistryScope = "standard" | "complete";
 
 // Convert HSL color to the format expected by shadcn registry
 const convertToRegistryColor = (color: string): string => {
@@ -82,17 +89,33 @@ const convertThemeStyles = (styles: ThemeStyles) => {
 };
 
 // This method will do the same as "generateThemeRegistry" from `scripts/generate-theme-registry.ts`
-export const generateThemeRegistryFromPreset = (name: string) => {
+export const generateThemeRegistryFromPreset = (name: string, scope: RegistryScope = "standard") => {
   const styles = getPresetThemeStyles(name);
-  const registryItem = generateThemeRegistryItemFromStyles(name, styles);
+  const registryItem = generateThemeRegistryItemFromStyles(name, styles, scope);
   return registryItem;
 };
 
 export const generateThemeRegistryItemFromStyles = (
   name: string,
-  themeStyles: ThemeStyles
+  themeStyles: ThemeStyles,
+  scope: RegistryScope = "standard"
 ) => {
-  const { light, dark } = convertThemeStyles(themeStyles);
+  // convertThemeStyles modifie ses entrées : on lui donne des copies pour ne jamais muter le thème source.
+  const { light, dark } = convertThemeStyles({
+    ...themeStyles,
+    light: { ...themeStyles.light },
+    dark: { ...themeStyles.dark },
+  });
+  const complete = scope === "complete";
+  const extendedVars = (mode: "light" | "dark") =>
+    complete
+      ? Object.fromEntries(
+          getExtendedColorVars(themeStyles, mode, convertToRegistryColor).map(([n, v]) => [n.slice(2), v])
+        )
+      : {};
+  const tokenVars = complete
+    ? Object.fromEntries(getTokenVars(themeStyles, convertToRegistryColor).map(([n, v]) => [n, v]))
+    : {};
 
   // Generate shadow variables for both light and dark modes
   const lightShadows = getShadowMap({
@@ -113,6 +136,7 @@ export const generateThemeRegistryItemFromStyles = (
         body: {
           "letter-spacing": "var(--tracking-normal)",
         },
+        ...(complete ? { ":root": tokenVars } : {}),
       },
     },
     cssVars: {
@@ -130,6 +154,7 @@ export const generateThemeRegistryItemFromStyles = (
       },
       light: {
         ...light,
+        ...extendedVars("light"),
         "shadow-2xs": lightShadows["shadow-2xs"],
         "shadow-xs": lightShadows["shadow-xs"],
         "shadow-sm": lightShadows["shadow-sm"],
@@ -144,6 +169,7 @@ export const generateThemeRegistryItemFromStyles = (
       },
       dark: {
         ...dark,
+        ...extendedVars("dark"),
         "shadow-2xs": darkShadows["shadow-2xs"],
         "shadow-xs": darkShadows["shadow-xs"],
         "shadow-sm": darkShadows["shadow-sm"],

@@ -20,6 +20,11 @@ export interface ShadcnStatusPayload {
 
 export interface ThemeUpdatePayload {
   themeState: ThemeEditorState;
+  /**
+   * Variables CSS déjà résolues du squelette étendu (couleurs étendues du mode courant + tokens),
+   * `{ "--nom": valeur }`. Optionnel : les anciens scripts embarqués l'ignorent.
+   */
+  cssVars?: Record<string, string>;
 }
 
 export type EmbedMessage =

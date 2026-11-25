@@ -5,6 +5,18 @@ import { getShadowMap } from "./shadows";
 import { defaultLightThemeStyles } from "@/config/theme";
 import { ThemeStyles } from "@/types/theme";
 import { extractFontFamily } from "./fonts";
+import { getExtendedColorVars, getTokenVarGroups, kebab, type CssVar } from "./tokens/css-vars";
+import { keysAt } from "./tokens/object-path";
+import { resolveTheme } from "./tokens/resolve";
+
+/**
+ * - `standard` : variables shadcn historiques uniquement (copier-coller dans un projet shadcn).
+ * - `complete` : + couleurs étendues du squelette EGEN et tokens (typographie, layout, mouvement…).
+ */
+export type TokenScope = "standard" | "complete";
+export interface GenerateOptions {
+  scope?: TokenScope;
+}
 
 type ThemeMode = "light" | "dark";
 
@@ -95,10 +107,48 @@ const generateTrackingVariables = (themeStyles: ThemeStyles): string => {
   --tracking-widest: calc(var(--tracking-normal) + 0.1em);`;
 };
 
-const generateThemeVariables = (
+const formatVarLines = (vars: CssVar[]) => vars.map(([name, value]) => `\n  ${name}: ${value};`).join("");
+
+const generateExtendedColorVariables = (
   themeStyles: ThemeStyles,
   mode: ThemeMode,
   formatColor: (color: string) => string
+): string => {
+  const vars = getExtendedColorVars(themeStyles, mode, formatColor);
+  return vars.length ? `\n\n  /* Extended colors */${formatVarLines(vars)}` : "";
+};
+
+const TOKEN_GROUP_TITLES: Record<string, string> = {
+  palette: "palette",
+  typography: "typography",
+  sizing: "sizing",
+  density: "density",
+  radius: "radius",
+  border: "borders",
+  shadow: "shadows",
+  opacity: "opacity",
+  layout: "layout",
+  component: "components",
+  motion: "motion",
+  effects: "effects",
+  zIndex: "z-index",
+  icons: "icons",
+  a11y: "accessibility",
+};
+
+const generateTokenVariables = (
+  themeStyles: ThemeStyles,
+  formatColor: (color: string) => string
+): string =>
+  getTokenVarGroups(themeStyles, formatColor)
+    .map(({ group, vars }) => `\n\n  /* Tokens — ${TOKEN_GROUP_TITLES[group] ?? group} */${formatVarLines(vars)}`)
+    .join("");
+
+const generateThemeVariables = (
+  themeStyles: ThemeStyles,
+  mode: ThemeMode,
+  formatColor: (color: string) => string,
+  scope: TokenScope = "standard"
 ): string => {
   const selector = mode === "dark" ? ".dark" : ":root";
   const colorVars = generateColorVariables(themeStyles, mode, formatColor);
@@ -118,6 +168,10 @@ const generateThemeVariables = (
       ? `\n  --tracking-normal: ${themeStyles["light"]["letter-spacing"] ?? defaultLightThemeStyles["letter-spacing"]};`
       : "";
 
+  const complete = scope === "complete";
+  const extendedVars = complete ? generateExtendedColorVariables(themeStyles, mode, formatColor) : "";
+  const tokenVars = complete && mode === "light" ? generateTokenVariables(themeStyles, formatColor) : "";
+
   return (
     selector +
     " {" +
@@ -128,11 +182,50 @@ const generateThemeVariables = (
     shadowVars +
     trackingVars +
     spacingVar +
+    extendedVars +
+    tokenVars +
     "\n}"
   );
 };
 
-const generateTailwindV4ThemeInline = (themeStyles: ThemeStyles): string => {
+/** Correspondances Tailwind v4 des tokens étendus (utilitaires `bg-success`, `text-lg`, `ease-spring`…). */
+const generateTailwindV4ExtendedMappings = (themeStyles: ThemeStyles): string => {
+  const resolved = resolveTheme(themeStyles);
+  const tokens = resolved.tokens;
+  const lines: string[] = [];
+  const add = (name: string, value: string) => lines.push(`  ${name}: ${value};`);
+
+  for (const [name] of getExtendedColorVars(themeStyles, "light")) add(`--color-${name.slice(2)}`, `var(${name})`);
+
+  for (const key of keysAt(tokens, ["typography", "fontSize"])) {
+    add(`--text-${key}`, `var(--typography-font-size-${key}-size)`);
+    add(`--text-${key}--line-height`, `var(--typography-font-size-${key}-line-height)`);
+  }
+  for (const key of keysAt(tokens, ["typography", "fontWeight"]))
+    add(`--font-weight-${key}`, `var(--typography-font-weight-${key})`);
+  for (const key of keysAt(tokens, ["typography", "lineHeight"]))
+    add(`--leading-${key}`, `var(--typography-line-height-${key})`);
+  for (const key of keysAt(tokens, ["motion", "easing"])) add(`--ease-${kebab(key)}`, `var(--motion-easing-${kebab(key)})`);
+  for (const key of keysAt(tokens, ["effects", "blur"]))
+    if (key !== "none") add(`--blur-${key}`, `var(--effects-blur-${key})`);
+
+  return lines.join("\n");
+};
+
+const generateTailwindV4ThemeInline = (themeStyles: ThemeStyles, scope: TokenScope = "standard"): string => {
+  const complete = scope === "complete";
+  // En mode complet, l'échelle de radius pointe vers les tokens (modifiables) au lieu de calc() figés.
+  const radiusBlock = complete
+    ? keysAt(resolveTheme(themeStyles).tokens, ["radius"])
+        .filter((key) => key !== "component" && key !== "lg")
+        .map((key) => `  --radius-${key}: var(--radius-${key});`)
+        .concat("  --radius-lg: var(--radius-lg);")
+        .join("\n")
+    : `  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);`;
+  const extendedMappings = complete ? `\n\n${generateTailwindV4ExtendedMappings(themeStyles)}` : "";
   return `@theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -171,10 +264,7 @@ const generateTailwindV4ThemeInline = (themeStyles: ThemeStyles): string => {
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+${radiusBlock}
 
   --shadow-2xs: var(--shadow-2xs);
   --shadow-xs: var(--shadow-xs);
@@ -183,17 +273,61 @@ const generateTailwindV4ThemeInline = (themeStyles: ThemeStyles): string => {
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
-  --shadow-2xl: var(--shadow-2xl);${generateTrackingVariables(themeStyles)}
+  --shadow-2xl: var(--shadow-2xl);${generateTrackingVariables(themeStyles)}${extendedMappings}
 }`;
 };
 
 const generateTailwindV3Config = (
-  _themeStyles: ThemeStyles,
-  colorFormat: ColorFormat = "hsl"
+  themeStyles: ThemeStyles,
+  colorFormat: ColorFormat = "hsl",
+  scope: TokenScope = "standard"
 ): string => {
   const colorToken = (key: string) => {
     return colorFormat === "hsl" ? `"hsl(var(--${key}))"` : `"var(--${key})"`;
   };
+
+  const complete = scope === "complete";
+  const tokens = complete ? resolveTheme(themeStyles).tokens : {};
+  const entries = (keys: string[], fn: (key: string) => string) =>
+    keys
+      .map((key) => `        ${JSON.stringify(kebab(key))}: ${fn(key)},`)
+      .join("\n");
+  const extendedColors = complete
+    ? "\n" +
+      getExtendedColorVars(themeStyles, "light")
+        .map(([name]) => `        ${JSON.stringify(name.slice(2))}: ${colorToken(name.slice(2))},`)
+        .join("\n")
+    : "";
+  const section = (title: string, body: string) => (complete && body ? `      ${title}: {\n${body}\n      },\n` : "");
+  const extendedSections =
+    section(
+      "fontSize",
+      entries(
+        keysAt(tokens, ["typography", "fontSize"]),
+        (k) => `["var(--typography-font-size-${k}-size)", { lineHeight: "var(--typography-font-size-${k}-line-height)" }]`
+      )
+    ) +
+    section("fontWeight", entries(keysAt(tokens, ["typography", "fontWeight"]), (k) => `"var(--typography-font-weight-${k})"`)) +
+    section("lineHeight", entries(keysAt(tokens, ["typography", "lineHeight"]), (k) => `"var(--typography-line-height-${k})"`)) +
+    section(
+      "transitionTimingFunction",
+      entries(keysAt(tokens, ["motion", "easing"]), (k) => `"var(--motion-easing-${kebab(k)})"`)
+    ) +
+    section(
+      "transitionDuration",
+      entries(keysAt(tokens, ["motion", "duration"]), (k) => `"var(--motion-duration-${kebab(k)})"`)
+    ) +
+    section("zIndex", entries(keysAt(tokens, ["zIndex"]), (k) => `"var(--z-index-${kebab(k)})"`)) +
+    section(
+      "blur",
+      entries(
+        keysAt(tokens, ["effects", "blur"]).filter((k) => k !== "none"),
+        (k) => `"var(--effects-blur-${k})"`
+      )
+    );
+  const radiusEntries = complete
+    ? `        xs: "var(--radius-xs)",\n        "2xl": "var(--radius-2xl)",\n        "3xl": "var(--radius-3xl)",\n        "4xl": "var(--radius-4xl)",\n`
+    : "";
 
   return `/** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -250,10 +384,10 @@ module.exports = {
           3: ${colorToken("chart-3")},
           4: ${colorToken("chart-4")},
           5: ${colorToken("chart-5")},
-        },
+        },${extendedColors}
       },
       borderRadius: {
-        xl: "calc(var(--radius) + 4px)",
+${radiusEntries}        xl: "calc(var(--radius) + 4px)",
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
@@ -263,7 +397,7 @@ module.exports = {
         serif: ["var(--font-serif)"],
         mono: ["var(--font-mono)"],
       },
-    },
+${extendedSections}    },
   },
 }`;
 };
@@ -277,8 +411,10 @@ const indentBlock = (str: string): string =>
 export const generateThemeCode = (
   themeEditorState: ThemeEditorState,
   colorFormat: ColorFormat = "hsl",
-  tailwindVersion: "3" | "4" = "3"
+  tailwindVersion: "3" | "4" = "3",
+  options: GenerateOptions = {}
 ): string => {
+  const scope = options.scope ?? "standard";
   if (
     !themeEditorState ||
     !("light" in themeEditorState.styles) ||
@@ -290,11 +426,11 @@ export const generateThemeCode = (
   const themeStyles = themeEditorState.styles as ThemeStyles;
   const formatColor = (color: string) => colorFormatter(color, colorFormat, tailwindVersion);
 
-  const lightTheme = generateThemeVariables(themeStyles, "light", formatColor);
-  const darkTheme = generateThemeVariables(themeStyles, "dark", formatColor);
+  const lightTheme = generateThemeVariables(themeStyles, "light", formatColor, scope);
+  const darkTheme = generateThemeVariables(themeStyles, "dark", formatColor, scope);
 
   if (tailwindVersion === "4") {
-    const tailwindV4Theme = generateTailwindV4ThemeInline(themeStyles);
+    const tailwindV4Theme = generateTailwindV4ThemeInline(themeStyles, scope);
 
     const bodyLetterSpacing =
       themeStyles["light"]["letter-spacing"] !== "0em"
@@ -345,7 +481,8 @@ ${indentBlock(darkTheme)}
 export const generateTailwindConfigCode = (
   themeEditorState: ThemeEditorState,
   colorFormat: ColorFormat = "hsl",
-  _tailwindVersion: "3" | "4" = "3"
+  _tailwindVersion: "3" | "4" = "3",
+  options: GenerateOptions = {}
 ): string => {
   if (
     !themeEditorState ||
@@ -356,7 +493,7 @@ export const generateTailwindConfigCode = (
   }
 
   const themeStyles = themeEditorState.styles as ThemeStyles;
-  return generateTailwindV3Config(themeStyles, colorFormat);
+  return generateTailwindV3Config(themeStyles, colorFormat, options.scope ?? "standard");
 };
 
 const FONT_SLOTS = [

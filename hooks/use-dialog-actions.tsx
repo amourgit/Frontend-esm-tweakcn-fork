@@ -11,6 +11,8 @@ import { useEditorStore } from "@/store/editor-store";
 import { useThemePresetStore } from "@/store/theme-preset-store";
 import { getBaseUrl } from "@/lib/site";
 import { parseCssInput } from "@/utils/parse-css-input";
+import { mergeImportedStyles, parseEgenTokensDocument } from "@/utils/tokens/export-json";
+import { deepMerge } from "@/utils/tokens/object-path";
 import { createContext, ReactNode, useContext, useState } from "react";
 
 type PendingAction = "share" | null;
@@ -93,11 +95,37 @@ function useDialogActionsStore(): DialogActionsContextType {
   });
 
   const handleCssImport = (css: string) => {
-    const { lightColors, darkColors } = parseCssInput(css);
+    // JSON `egen-tokens.json` (export complet ou partiel du squelette) ou CSS (:root / .dark)
+    if (css.trim().startsWith("{")) {
+      let json: unknown;
+      try {
+        json = JSON.parse(css);
+      } catch {
+        toast({ title: "Import failed", description: "The JSON could not be parsed.", variant: "destructive" });
+        return;
+      }
+      const parsed = parseEgenTokensDocument(json);
+      if (!parsed.ok) {
+        toast({ title: "Import failed", description: parsed.error, variant: "destructive" });
+        return;
+      }
+      setThemeState({
+        ...themeState,
+        styles: mergeImportedStyles(themeState.styles, parsed.styles),
+      });
+      toast({
+        title: "Tokens imported",
+        description: `${parsed.extendedCount} extended colors and ${parsed.tokenCount} tokens customized.`,
+      });
+      return;
+    }
+
+    const { lightColors, darkColors, tokens } = parseCssInput(css);
     const styles = {
       ...themeState.styles,
       light: { ...themeState.styles.light, ...lightColors },
       dark: { ...themeState.styles.dark, ...darkColors },
+      ...(tokens ? { tokens: deepMerge(themeState.styles.tokens ?? {}, tokens) } : {}),
     };
 
     setThemeState({

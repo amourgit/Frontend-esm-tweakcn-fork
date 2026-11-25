@@ -1,14 +1,19 @@
-import { ThemeStyleProps } from "@/types/theme";
+import { ThemeStyleProps, ThemeTokens } from "@/types/theme";
 import { colorFormatter } from "./color-converter";
 import { COMMON_STYLES, defaultThemeState } from "@/config/theme";
+import { DERIVED_COLOR_KEYS } from "./tokens/derive";
+import { setPath, type TokenTree } from "./tokens/object-path";
+import { coerceTokenValue, getTokenDefinitions, type TokenDefinition } from "./tokens/registry";
 
-export const variableNames = Object.keys(defaultThemeState.styles.light);
+// Clés reconnues à l'import : les 44 clés tweakcn + les couleurs étendues du squelette EGEN.
+export const variableNames = [...Object.keys(defaultThemeState.styles.light), ...DERIVED_COLOR_KEYS];
 const nonColorVariables = COMMON_STYLES;
 const VARIABLE_PREFIX = "--";
 
 export const parseCssInput = (input: string) => {
   const lightColors: ThemeStyleProps = {} as ThemeStyleProps;
   const darkColors: ThemeStyleProps = {} as ThemeStyleProps;
+  let tokens: ThemeTokens | undefined;
 
   try {
     const rootContent = extractCssBlockContent(input, ":root");
@@ -16,6 +21,7 @@ export const parseCssInput = (input: string) => {
 
     if (rootContent) {
       parseColorVariables(rootContent, lightColors, variableNames);
+      tokens = parseTokenVariables(rootContent);
     }
     if (darkContent) {
       parseColorVariables(darkContent, darkColors, variableNames);
@@ -24,7 +30,26 @@ export const parseCssInput = (input: string) => {
     console.error("Error parsing CSS input:", error);
   }
 
-  return { lightColors, darkColors };
+  return { lightColors, darkColors, tokens };
+};
+
+let tokenPathByCssVar: Map<string, TokenDefinition> | undefined;
+const getTokenPathByCssVar = () =>
+  (tokenPathByCssVar ??= new Map(getTokenDefinitions().filter((d) => !d.optional).map((d) => [d.cssVar, d])));
+
+/** Variables de tokens du squelette (`--motion-duration-fast`, `--layout-sidebar-width`…) → arbre `tokens`. */
+const parseTokenVariables = (cssContent: string): ThemeTokens | undefined => {
+  const byVar = getTokenPathByCssVar();
+  let tokens: TokenTree | undefined;
+  for (const declaration of cssContent.match(/--[^:]+:\s*[^;]+/g) || []) {
+    const separator = declaration.indexOf(":");
+    const name = declaration.slice(0, separator).trim();
+    const value = declaration.slice(separator + 1).trim();
+    const entry = byVar.get(name);
+    if (!entry) continue;
+    tokens = setPath(tokens, entry.path, entry.kind === "color" ? processColorValue(value) : coerceTokenValue(entry, value));
+  }
+  return tokens;
 };
 
 const extractCssBlockContent = (

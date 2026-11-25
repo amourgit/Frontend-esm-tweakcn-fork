@@ -1,6 +1,7 @@
 import { useEditorStore } from "@/store/editor-store";
 import { EmbedMessage, IframeStatus, MESSAGE } from "@/types/live-preview-embed";
 import { applyThemeToElement } from "@/utils/apply-theme";
+import { getExtendedCssVariableMap } from "@/utils/tokens/css-vars";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const THEME_UPDATE_DEBOUNCE_MS = 50;
@@ -149,7 +150,13 @@ export const useIframeThemeInjector = ({
       if (status === "supported") {
         clearTimeout(themeUpdateTimeoutRef.current!);
         themeUpdateTimeoutRef.current = setTimeout(() => {
-          postMessage({ type: MESSAGE.THEME_UPDATE, payload: { themeState } });
+          postMessage({
+            type: MESSAGE.THEME_UPDATE,
+            payload: {
+              themeState,
+              cssVars: getExtendedCssVariableMap(themeState.styles, themeState.currentMode),
+            },
+          });
         }, THEME_UPDATE_DEBOUNCE_MS);
       }
     } else {

@@ -2,6 +2,7 @@ import { colorFormatter } from "./color-converter";
 import { applyStyleToElement } from "./apply-style-to-element";
 import { ThemeEditorState } from "../types/editor";
 import { defaultThemeState } from "../config/theme";
+import { getShadowOverrides } from "./tokens/css-vars";
 
 export const getShadowMap = (themeEditorState: ThemeEditorState) => {
   const mode = themeEditorState.currentMode;
@@ -60,6 +61,9 @@ export const getShadowMap = (themeEditorState: ThemeEditorState) => {
       1.0
     )}, ${secondLayer("8px", "10px")}`,
   };
+
+  // Ombres imposées par le thème (tokens.shadow.override.<taille>) : elles remplacent le calcul.
+  Object.assign(shadowMap, getShadowOverrides(themeEditorState.styles));
 
   return shadowMap;
 };

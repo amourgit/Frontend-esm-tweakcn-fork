@@ -33,7 +33,8 @@ const CssImportDialog: React.FC<CssImportDialogProps> = ({ open, onOpenChange, o
     try {
       // Here you would add more sophisticated CSS parsing validation
       // For now we'll just do a simple check
-      if (!cssText.includes("--") || !cssText.includes(":")) {
+      const isJson = cssText.trim().startsWith("{");
+      if (!isJson && (!cssText.includes("--") || !cssText.includes(":"))) {
         setError(
           "Invalid CSS format. CSS should contain variable definitions like --primary: #color"
         );
@@ -62,8 +63,8 @@ const CssImportDialog: React.FC<CssImportDialogProps> = ({ open, onOpenChange, o
           <ResponsiveDialogHeader className="px-6">
             <ResponsiveDialogTitle>Import Custom CSS</ResponsiveDialogTitle>
             <ResponsiveDialogDescription>
-              Paste your CSS file below to customize the theme colors. Make sure to include
-              variables like --primary, --background, etc.
+              Paste your CSS (variables like --primary, --background, --success, --motion-duration-fast…) or
+              an <code>egen-tokens.json</code> document. Anything you leave out keeps its current value.
             </ResponsiveDialogDescription>
           </ResponsiveDialogHeader>
 
