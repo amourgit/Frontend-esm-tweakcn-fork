@@ -130,13 +130,18 @@ export interface ThemeEditorControlsProps {
   onChange: (styles: ThemeStyles) => void;
 }
 
+/** Clés d'un mode : celles de tweakcn + toute couleur étendue du squelette EGEN, toutes optionnelles. */
+export type PartialThemeStyleProps = Partial<ThemeStyleProps> & { [key: string]: string | undefined };
+
 export type ThemePreset = {
   source?: "SAVED" | "BUILT_IN";
   createdAt?: string;
   label?: string;
   styles: {
-    light: Partial<ThemeStyleProps>;
-    dark: Partial<ThemeStyleProps>;
+    light: PartialThemeStyleProps;
+    dark: PartialThemeStyleProps;
+    /** Tokens indépendants du mode que le preset souhaite personnaliser (tous optionnels). */
+    tokens?: ThemeTokens;
   };
 };
 

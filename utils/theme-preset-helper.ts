@@ -1,5 +1,5 @@
 import { defaultThemeState } from "../config/theme";
-import { ThemeStyles } from "../types/theme";
+import { ThemeStyles, ThemeTokens, PartialThemeStyleProps } from "../types/theme";
 import { useThemePresetStore } from "../store/theme-preset-store";
 import { defaultPresets } from "./theme-presets";
 
@@ -21,12 +21,18 @@ export function getBuiltInThemeStyles(name: string): { name: string; styles: The
   };
 }
 
-function mergePresetWithDefaults(presetStyles: {
-  light?: Partial<ThemeStyles["light"]>;
-  dark?: Partial<ThemeStyles["dark"]>;
+/**
+ * Un preset ne renseigne que ce qu'il personnalise : les 44 clés tweakcn manquantes viennent des
+ * défauts ; les couleurs étendues et `tokens` restent des overrides OPTIONNELS (ce qui n'est pas
+ * renseigné est dérivé des couleurs du preset par `resolveTheme`, jamais copié d'un thème neutre).
+ */
+export function mergePresetWithDefaults(presetStyles: {
+  light?: PartialThemeStyleProps;
+  dark?: PartialThemeStyleProps;
+  tokens?: ThemeTokens;
 }): ThemeStyles {
   const defaultTheme = defaultThemeState.styles;
-  return {
+  const merged = {
     light: {
       ...defaultTheme.light,
       ...(presetStyles.light || {}),
@@ -36,7 +42,11 @@ function mergePresetWithDefaults(presetStyles: {
       ...(presetStyles.light || {}),
       ...(presetStyles.dark || {}),
     },
-  };
+  } as ThemeStyles;
+  if (presetStyles.tokens && Object.keys(presetStyles.tokens).length > 0) {
+    merged.tokens = presetStyles.tokens;
+  }
+  return merged;
 }
 
 export function getPresetThemeStyles(name: string): ThemeStyles {
