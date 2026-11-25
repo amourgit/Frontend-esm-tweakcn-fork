@@ -18,3 +18,7 @@ Déployer l'image (`docker compose up -d --build`), puis dans le Core : déclare
 
 ## Navigation partagée
 `navigation` (`history` par défaut, `hash`, `none`) dans la configuration du Core, par instance. Spécification : `docs/integration-apps/16-navigation-partagee-apps-externes.md` du Core. Le wrapper ≥ 1.1.0 exige `@egen-civitas/esm-nextjs-utils` ≥ 0.3.0.
+
+## Tokens de design
+
+Le studio gère un squelette complet de tokens (couleurs étendues, palette, typographie, layout, mouvement, composants…), exportable en CSS, registre shadcn et JSON pour TokiForge. Voir [docs/design-tokens.md](docs/design-tokens.md).
