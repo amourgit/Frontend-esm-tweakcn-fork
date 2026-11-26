@@ -119,6 +119,13 @@ describe("export CSS — portée « complete » (squelette EGEN)", () => {
     expect(generateThemeCode(stateOf("default", styles), "oklch", "4")).toContain("--shadow-md: 0 4px 0 0 oklch(0 0 0 / 0.5);");
   });
 
+  it("n'émet jamais une variable réservée issue d'un token (la couleur du thème n'est pas écrasée)", () => {
+    const styles = { ...stylesOf("default"), tokens: { border: { subtle: "1px" } } };
+    const css = generateThemeCode(stateOf("default", styles), "oklch", "4", { scope: "complete" });
+    expect(css.match(/^  --border-subtle: /gm)).toHaveLength(2); // une fois par mode, jamais « 1px »
+    expect(css).not.toMatch(/--border-subtle: 1px/);
+  });
+
   it("catalogue : chaque token du catalogue (hors overrides optionnels) est émis", () => {
     const css = generateThemeCode(stateOf("default"), "oklch", "4", { scope: "complete" });
     for (const def of getTokenDefinitions().filter((d) => !d.optional)) {

@@ -1,6 +1,7 @@
 import { theme } from "@/db/schema";
 import { InferSelectModel } from "drizzle-orm";
 import { z } from "zod";
+import { findReservedTokenPaths } from "@/utils/tokens/css-vars";
 
 export const themeStylePropsSchema = z.object({
   background: z.string().describe("The default background color, paired with `foreground`."),
@@ -89,7 +90,11 @@ export const MAX_THEME_STYLES_BYTES = 256 * 1024;
 
 export const themeStylePropsInputSchema = themeStylePropsSchema.catchall(z.string());
 
-export const themeTokensSchema = z.record(z.string(), z.unknown());
+export const themeTokensSchema = z
+  .record(z.string(), z.unknown())
+  .refine((tokens) => findReservedTokenPaths(tokens).length === 0, {
+    message: "A token would overwrite a theme color variable (reserved name)",
+  });
 
 export const themeStylesInputSchema = z
   .object({

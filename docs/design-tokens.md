@@ -71,6 +71,10 @@ Le choix se fait dans le panneau de code (« Complete / Standard »). Les URL `.
 
 Toujours **résolu** à l'export (rien à deviner côté récepteur) ; à l'import, tout ce qui est identique à la valeur dérivée est retiré pour retrouver la forme minimale du thème. Les valeurs sont du CSS prêt à l'emploi ; les références `var(--…)` entre tokens sont conservées.
 
+Côté récepteur (dépôt `egen-tokiforge`, schemaVersion 2) : `POST /v1/ingest/egen-tokens` reçoit ce document, `GET /v1/themes/:slug/published.tokens.json` le restitue, et le runtime applique le squelette complet. Le résolveur de TokiForge est un port de celui-ci ; **la parité est vérifiée par des fixtures générées ici** : `pnpm tsx scripts/export-parity-fixtures.ts <sortie.json>` (à relancer, puis à copier dans `packages/core/src/__fixtures__/egen-skeleton-golden.json` de TokiForge, chaque fois que le squelette ou les règles de dérivation changent).
+
+**Noms réservés** : un token dont la variable CSS (`--<groupe>-<chemin>`) coïnciderait avec une couleur du thème ou une ombre calculée (ex. `tokens.border.subtle` → `--border-subtle`) est refusé à l'enregistrement et à l'import, et jamais émis : il écraserait la couleur et contournerait la liste blanche des surcharges côté TokiForge.
+
 ## Ajouter un token
 
 1. Valeur par défaut dans `config/tokens/defaults.ts` (ou règle dans `derive.ts` pour une couleur étendue).

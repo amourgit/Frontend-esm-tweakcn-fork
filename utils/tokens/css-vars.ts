@@ -1,6 +1,6 @@
 import type { ThemeStyles } from "@/types/theme";
 import { isColorValue } from "./color-math";
-import { DERIVED_COLORS, type Mode } from "./derive";
+import { DERIVED_COLOR_KEYS, DERIVED_COLORS, type Mode } from "./derive";
 import { flatten, type Primitive } from "./object-path";
 import { BASE_STYLE_KEYS, resolveTheme } from "./resolve";
 
@@ -22,6 +22,35 @@ export const kebab = (segment: string) =>
   segment.replace(/([a-z0-9])([A-Z])/g, "$1-$2").replace(/_/g, "-").toLowerCase();
 
 export const tokenCssVarName = (path: string[]) => `--${path.map(kebab).join("-")}`;
+
+/**
+ * Variables (sans `--`) que seules les clés de mode et le calcul des ombres ont le droit de produire.
+ * Un token dont la variable coïnciderait (ex. `tokens.border.subtle` → `--border-subtle`) écraserait une
+ * couleur du thème : il est refusé à l'enregistrement et jamais émis.
+ */
+export const RESERVED_VARIABLES: ReadonlySet<string> = new Set([
+  ...BASE_STYLE_KEYS,
+  ...DERIVED_COLOR_KEYS,
+  "tracking-normal",
+  "shadow",
+  "shadow-x",
+  "shadow-y",
+  "shadow-2xs",
+  "shadow-xs",
+  "shadow-sm",
+  "shadow-md",
+  "shadow-lg",
+  "shadow-xl",
+  "shadow-2xl",
+]);
+
+/** Chemins pointés des tokens dont la variable CSS est réservée (hors `shadow.override`, traité à part). */
+export function findReservedTokenPaths(tokens: unknown): string[] {
+  return flatten(tokens)
+    .filter(({ path }) => path[0] !== "meta" && !(path[0] === "shadow" && path[1] === "override"))
+    .filter(({ path }) => RESERVED_VARIABLES.has(tokenCssVarName(path).slice(2)))
+    .map(({ path }) => path.join("."));
+}
 
 const stringify = (value: Primitive): string =>
   typeof value === "boolean" ? (value ? "1" : "0") : String(value);
@@ -71,6 +100,7 @@ export function getTokenVars(styles: ThemeStyles, formatColor: ColorFormatterFn 
   const { tokens } = resolveTheme(styles);
   return flatten(tokens)
     .filter(({ path }) => !(path[0] === "shadow" && path[1] === "override"))
+    .filter(({ path }) => !RESERVED_VARIABLES.has(tokenCssVarName(path).slice(2)))
     .map(({ path, value }) => {
       const raw = stringify(value);
       const formatted = path[0] === "palette" && isColorValue(raw) ? formatColor(raw) : raw;
@@ -89,6 +119,7 @@ export function getTokenVarGroups(styles: ThemeStyles, formatColor: ColorFormatt
   const groups = new Map<string, CssVar[]>();
   for (const { path, value } of flatten(tokens)) {
     if (path[0] === "shadow" && path[1] === "override") continue;
+    if (RESERVED_VARIABLES.has(tokenCssVarName(path).slice(2))) continue;
     const raw = stringify(value);
     const formatted = path[0] === "palette" && isColorValue(raw) ? formatColor(raw) : raw;
     const list = groups.get(path[0]) ?? [];

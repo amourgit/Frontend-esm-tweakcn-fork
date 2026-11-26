@@ -1,6 +1,7 @@
 import { defaultThemeState } from "@/config/theme";
 import type { ThemeStyles } from "@/types/theme";
 import { cloneDeep, deepMerge, flatten, getPath, isPlainObject, treeEquals, unsetPath, type TokenTree } from "./object-path";
+import { findReservedTokenPaths } from "./css-vars";
 import { DERIVED_COLOR_KEYS } from "./derive";
 import { BASE_STYLE_KEYS, resolveModeStyles, resolveTheme } from "./resolve";
 import { TOKEN_GROUPS } from "./registry";
@@ -137,6 +138,10 @@ export function parseEgenTokensDocument(input: unknown): ParsedTokens {
     if (bad) return { ok: false, error: `"${label}.${bad[0]}" must be a string.` };
   }
   if (tokens !== undefined && !isPlainObject(tokens)) return { ok: false, error: '"tokens" must be an object.' };
+  const reserved = isPlainObject(tokens) ? findReservedTokenPaths(tokens) : [];
+  if (reserved.length) {
+    return { ok: false, error: `"tokens.${reserved[0]}" would overwrite a theme color variable (reserved name).` };
+  }
 
   const defaults = defaultThemeState.styles;
   const candidate = {

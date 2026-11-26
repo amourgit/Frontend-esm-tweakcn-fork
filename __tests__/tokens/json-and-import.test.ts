@@ -65,6 +65,13 @@ describe("egen-tokens.json — export / import", () => {
     expect(merged.tokens).toEqual({ layout: { header: { height: "5rem" } }, motion: { duration: { fast: "60ms" } } });
   });
 
+  it("refuse un token dont la variable écraserait une couleur du thème (contournement de la personnalisation)", () => {
+    const parsed = parseEgenTokensDocument({ tokens: { border: { subtle: "1px" } } });
+    expect(parsed).toMatchObject({ ok: false, error: expect.stringContaining("tokens.border.subtle") });
+    expect(parseEgenTokensDocument({ tokens: { shadow: { md: "0 0 0 0 red" } } }).ok).toBe(false);
+    expect(parseEgenTokensDocument({ tokens: { radius: { md: "4px" } } }).ok).toBe(true); // --radius-md n'est pas réservée
+  });
+
   it("minimizeStyles retire exactement ce qui est dérivable", () => {
     const full = clone(stylesOf("default")) as ThemeStyles;
     const resolved = resolveTheme(full);

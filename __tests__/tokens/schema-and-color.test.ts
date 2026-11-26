@@ -33,6 +33,13 @@ describe("schéma de validation (frontière serveur)", () => {
     expect(themeStylesInputSchema.safeParse({ ...styles, tokens: "oops" }).success).toBe(false);
   });
 
+  it("refuse à l'enregistrement un token qui écraserait une couleur ou une ombre du thème", () => {
+    expect(themeStylesInputSchema.safeParse({ ...styles, tokens: { border: { subtle: "1px" } } }).success).toBe(false);
+    expect(themeStylesInputSchema.safeParse({ ...styles, tokens: { shadow: { md: "0 0 0 0 red" } } }).success).toBe(false);
+    expect(themeStylesInputSchema.safeParse({ ...styles, tokens: { shadow: { override: { md: "0 0 0 0 red" } } } }).success).toBe(true);
+    expect(themeStylesInputSchema.safeParse({ ...styles, tokens: { radius: { md: "4px" } } }).success).toBe(true);
+  });
+
   it("accepte un thème ancien (sans tokens ni extras)", () => {
     expect(themeStylesInputSchema.safeParse(clone(defaultThemeState.styles)).success).toBe(true);
   });
