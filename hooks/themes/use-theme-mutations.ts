@@ -1,10 +1,19 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createTheme, updateTheme, deleteTheme } from "@/actions/themes";
+import { createTheme, updateTheme, deleteTheme, restoreThemeVersion } from "@/actions/themes";
 import { themeKeys } from "./use-themes-data";
 import { ThemeStyles, Theme } from "@/types/theme";
+import { ErrorCode } from "@/types/errors";
 import { toast } from "@/components/ui/use-toast";
-import { useThemePresetStore } from "@/store/theme-preset-store";
+import { themeToPreset, useThemePresetStore } from "@/store/theme-preset-store";
 import { useRouter } from "next/navigation";
+
+/** Métadonnées d'une version, saisies à l'enregistrement. */
+export interface ThemeSaveInput {
+  name?: string;
+  description?: string | null;
+  changeNote?: string | null;
+  metadata?: Record<string, unknown>;
+}
 
 function handleMutationError(error: Error, operation: string) {
   console.error(`Theme ${operation} error:`, error);
@@ -17,6 +26,10 @@ function handleMutationError(error: Error, operation: string) {
         return error.message || "Invalid input provided.";
       case "ThemeNotFoundError":
         return "Theme not found.";
+      case "ThemeVersionConflictError":
+        return "This theme was modified elsewhere. Reload it before saving your changes.";
+      case "ThemeForbiddenError":
+        return "This action is not allowed on this theme.";
       default:
         return "An unexpected error occurred. Please try again.";
     }
@@ -36,7 +49,9 @@ export function useCreateTheme() {
   const { registerPreset } = useThemePresetStore();
 
   return useMutation({
-    mutationFn: async (data: { name: string; styles: ThemeStyles }) => {
+    mutationFn: async (
+      data: Omit<ThemeSaveInput, "name"> & { name: string; styles: ThemeStyles }
+    ) => {
       const result = await createTheme(data);
 
       if (!result.success) {
@@ -50,12 +65,7 @@ export function useCreateTheme() {
         return old ? [...old, data] : [data];
       });
 
-      registerPreset(data.id, {
-        label: data.name,
-        source: "SAVED",
-        createdAt: data.createdAt.toISOString(),
-        styles: data.styles,
-      });
+      registerPreset(data.id, themeToPreset(data, "SAVED"));
 
       toast({
         title: "Theme created",
@@ -80,7 +90,17 @@ export function useUpdateTheme() {
   const { updatePreset } = useThemePresetStore();
 
   return useMutation({
-    mutationFn: (data: { id: string; name?: string; styles?: ThemeStyles }) => updateTheme(data),
+    mutationFn: async (data: { id: string; styles?: ThemeStyles; baseVersion?: number } & ThemeSaveInput) => {
+      const result = await updateTheme(data);
+      if (!result.success) {
+        const error = new Error(result.error.message);
+        if (result.error.code === ErrorCode.THEME_VERSION_CONFLICT) {
+          error.name = "ThemeVersionConflictError";
+        }
+        throw error;
+      }
+      return result.data;
+    },
     onMutate: async (updatedTheme) => {
       await queryClient.cancelQueries({ queryKey: themeKeys.lists() });
       await queryClient.cancelQueries({ queryKey: themeKeys.detail(updatedTheme.id) });
@@ -111,17 +131,20 @@ export function useUpdateTheme() {
         return old.map((theme) => (theme.id === data.id ? data : theme));
       });
 
-      updatePreset(data.id, {
-        label: data.name,
-        source: "SAVED",
-        createdAt: data.createdAt.toISOString(),
-        styles: data.styles,
-      });
+      // Un thème système reste un thème système : il gagne une version, il ne devient pas « enregistré ».
+      updatePreset(data.id, themeToPreset(data, data.source === "BUILT_IN" ? "BUILT_IN" : "SAVED"));
 
-      toast({
-        title: "Theme updated",
-        description: `"${data.name}" has been updated successfully.`,
-      });
+      toast(
+        data.versionCreated
+          ? {
+              title: "New version saved",
+              description: `"${data.name}" is now at version ${data.currentVersion}.`,
+            }
+          : {
+              title: "No changes to save",
+              description: `"${data.name}" is identical to its current version.`,
+            }
+      );
     },
     onError: (error, variables, context) => {
       if (context?.previousThemes) {
@@ -175,5 +198,34 @@ export function useDeleteTheme() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: themeKeys.lists() });
     },
+  });
+}
+
+/** Restaure une ancienne version d'un thème : crée une nouvelle version avec son contenu. */
+export function useRestoreThemeVersion() {
+  const queryClient = useQueryClient();
+  const { updatePreset } = useThemePresetStore();
+
+  return useMutation({
+    mutationFn: async (data: { themeId: string; version: number }) => {
+      const result = await restoreThemeVersion(data.themeId, data.version);
+      if (!result.success) throw new Error(result.error.message);
+      return result.data;
+    },
+    onSuccess: (data) => {
+      updatePreset(data.id, themeToPreset(data, data.source === "BUILT_IN" ? "BUILT_IN" : "SAVED"));
+      queryClient.setQueryData(themeKeys.detail(data.id), data);
+      queryClient.invalidateQueries({ queryKey: themeKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: themeKeys.versions(data.id) });
+      toast(
+        data.versionCreated
+          ? {
+              title: "Version restored",
+              description: `"${data.name}" is now at version ${data.currentVersion}.`,
+            }
+          : { title: "Already current", description: "This version is already the current one." }
+      );
+    },
+    onError: (error) => handleMutationError(error as Error, "restore"),
   });
 }

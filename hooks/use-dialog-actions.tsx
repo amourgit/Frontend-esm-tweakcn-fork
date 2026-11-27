@@ -1,7 +1,8 @@
 import { CodePanelDialog } from "@/components/editor/code-panel-dialog";
 import CssImportDialog from "@/components/editor/css-import-dialog";
 import { ShareDialog } from "@/components/editor/share-dialog";
-import { ThemeSaveDialog } from "@/components/editor/theme-save-dialog";
+import { ThemeSaveDialog, type ThemeSaveValues } from "@/components/editor/theme-save-dialog";
+import { ThemeHistoryDialog } from "@/components/editor/theme-history-dialog";
 import { toast } from "@/components/ui/use-toast";
 import { useCreateTheme, useUpdateTheme } from "@/hooks/themes";
 import { usePostLoginAction } from "@/hooks/use-post-login-action";
@@ -43,19 +44,25 @@ interface DialogActionsContextType {
   isUpdatingTheme: boolean;
   pendingAction: PendingAction;
   existingThemeName: string | undefined;
+  existingThemeDescription: string | null | undefined;
+  existingVersion: number | undefined;
+  historyOpen: boolean;
+  /** Thème persisté (système ou enregistré) actuellement affiché, dont on peut consulter l'historique. */
+  historyThemeId: string | undefined;
 
   // Dialog actions
   setCssImportOpen: (open: boolean) => void;
   setCodePanelOpen: (open: boolean) => void;
   setSaveDialogOpen: (open: boolean) => void;
   setShareDialogOpen: (open: boolean) => void;
+  setHistoryOpen: (open: boolean) => void;
 
   // Handler functions
   handleCssImport: (css: string) => void;
   handleSaveClick: (options?: { shareAfterSave?: boolean }) => void;
   handleShareClick: (id?: string) => Promise<void>;
-  saveTheme: (themeName: string) => Promise<void>;
-  handleUpdateExisting: () => Promise<void>;
+  saveTheme: (values: ThemeSaveValues) => Promise<void>;
+  handleUpdateExisting: (values: ThemeSaveValues) => Promise<void>;
 }
 
 function useDialogActionsStore(): DialogActionsContextType {
@@ -64,6 +71,7 @@ function useDialogActionsStore(): DialogActionsContextType {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [dialogKey, _setDialogKey] = useState(0);
 
@@ -81,9 +89,14 @@ function useDialogActionsStore(): DialogActionsContextType {
   const updateThemeMutation = useUpdateTheme();
 
   const currentPreset = themeState?.preset ? getPreset(themeState.preset) : undefined;
-  const isOnSavedPreset =
-    !!currentPreset && currentPreset.source === "SAVED" && hasUnsavedChanges();
-  const existingThemeName = isOnSavedPreset ? currentPreset.label : undefined;
+  // Un thème persisté (enregistré OU système) modifié peut recevoir une nouvelle version.
+  const isPersistedPreset =
+    !!currentPreset && (currentPreset.source === "SAVED" || currentPreset.source === "BUILT_IN");
+  const isOnEditablePreset = isPersistedPreset && hasUnsavedChanges();
+  const existingThemeName = isOnEditablePreset ? currentPreset.label : undefined;
+  const existingThemeDescription = isOnEditablePreset ? currentPreset.description : undefined;
+  const existingVersion = isOnEditablePreset ? currentPreset.version : undefined;
+  const historyThemeId = isPersistedPreset ? themeState.preset : undefined;
 
   usePostLoginAction("SAVE_THEME", () => {
     setSaveDialogOpen(true);
@@ -153,9 +166,10 @@ function useDialogActionsStore(): DialogActionsContextType {
     }
   };
 
-  const saveTheme = async (themeName: string) => {
+  const saveTheme = async (values: ThemeSaveValues) => {
     const themeData = {
-      name: themeName,
+      name: values.name,
+      description: values.description,
       styles: themeState.styles,
     };
 
@@ -200,12 +214,17 @@ function useDialogActionsStore(): DialogActionsContextType {
     setShareDialogOpen(true);
   };
 
-  const handleUpdateExisting = async () => {
+  const handleUpdateExisting = async (values: ThemeSaveValues) => {
     if (!themeState.preset) return;
     try {
       const result = await updateThemeMutation.mutateAsync({
         id: themeState.preset,
+        name: values.name,
+        description: values.description,
+        changeNote: values.changeNote,
         styles: themeState.styles,
+        // Détecte une modification concurrente du même thème depuis un autre onglet/utilisateur.
+        baseVersion: existingVersion,
       });
       if (result) {
         applyThemePreset(result.id || themeState.preset);
@@ -228,12 +247,17 @@ function useDialogActionsStore(): DialogActionsContextType {
     isUpdatingTheme: updateThemeMutation.isPending,
     pendingAction,
     existingThemeName,
+    existingThemeDescription,
+    existingVersion,
+    historyOpen,
+    historyThemeId,
 
     // Dialog actions
     setCssImportOpen,
     setCodePanelOpen,
     setSaveDialogOpen,
     setShareDialogOpen,
+    setHistoryOpen,
 
     // Handler functions
     handleCssImport,
@@ -273,9 +297,16 @@ export function DialogActionsProvider({ children }: { children: ReactNode }) {
         onSave={store.saveTheme}
         isSaving={store.isCreatingTheme}
         existingThemeName={store.existingThemeName}
+        existingThemeDescription={store.existingThemeDescription}
+        existingVersion={store.existingVersion}
         onUpdateExisting={store.handleUpdateExisting}
         isUpdating={store.isUpdatingTheme}
         {...getSaveDialogCopy(store.pendingAction)}
+      />
+      <ThemeHistoryDialog
+        open={store.historyOpen}
+        onOpenChange={store.setHistoryOpen}
+        themeId={store.historyThemeId}
       />
       <ShareDialog
         open={store.shareDialogOpen}

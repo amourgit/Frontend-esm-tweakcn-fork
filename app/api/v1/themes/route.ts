@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { theme as themeTable } from "@/db/schema";
 import { oauthError, requireAuth } from "@/lib/oauth";
-import { and, desc, eq, gt } from "drizzle-orm";
+import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { createHash } from "crypto";
 import { NextRequest } from "next/server";
 
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const auth = await requireAuth(req, "themes:read");
   if (auth.error) return auth.error;
 
-  const filters = [eq(themeTable.userId, auth.tokenData.userId)];
+  const filters = [eq(themeTable.userId, auth.tokenData.userId), isNull(themeTable.deletedAt)];
 
   const updatedSince = req.nextUrl.searchParams.get("updated_since");
   if (updatedSince) {
@@ -30,6 +30,9 @@ export async function GET(req: NextRequest) {
     .select({
       id: themeTable.id,
       name: themeTable.name,
+      description: themeTable.description,
+      version: themeTable.currentVersion,
+      metadata: themeTable.metadata,
       styles: themeTable.styles,
       createdAt: themeTable.createdAt,
       updatedAt: themeTable.updatedAt,
@@ -39,7 +42,7 @@ export async function GET(req: NextRequest) {
     .orderBy(desc(themeTable.updatedAt), themeTable.id);
 
   const etag = `"${createHash("sha256")
-    .update(themes.map((t) => `${t.id}:${t.updatedAt.toISOString()}`).join("|"))
+    .update(themes.map((t) => `${t.id}:${t.version}:${t.updatedAt.toISOString()}`).join("|"))
     .digest("hex")
     .slice(0, 32)}"`;
 

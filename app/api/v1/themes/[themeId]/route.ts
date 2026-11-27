@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { theme as themeTable } from "@/db/schema";
 import { oauthError, requireAuth } from "@/lib/oauth";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { createHash } from "crypto";
 import { NextRequest } from "next/server";
 
@@ -15,12 +15,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ them
     .select({
       id: themeTable.id,
       name: themeTable.name,
+      description: themeTable.description,
+      version: themeTable.currentVersion,
+      metadata: themeTable.metadata,
       styles: themeTable.styles,
       createdAt: themeTable.createdAt,
       updatedAt: themeTable.updatedAt,
     })
     .from(themeTable)
-    .where(and(eq(themeTable.id, themeId), eq(themeTable.userId, auth.tokenData.userId)))
+    .where(
+      and(
+        eq(themeTable.id, themeId),
+        eq(themeTable.userId, auth.tokenData.userId),
+        isNull(themeTable.deletedAt)
+      )
+    )
     .limit(1);
 
   if (!theme) {
@@ -28,7 +37,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ them
   }
 
   const etag = `"${createHash("sha256")
-    .update(`${theme.id}:${theme.updatedAt.toISOString()}`)
+    .update(`${theme.id}:${theme.version}:${theme.updatedAt.toISOString()}`)
     .digest("hex")
     .slice(0, 32)}"`;
 

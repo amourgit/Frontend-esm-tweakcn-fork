@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { defaultThemeState } from "@/config/theme";
 import { useEditorStore } from "@/store/editor-store";
+import { useThemePresetStore } from "@/store/theme-preset-store";
+import { builtInThemeRows } from "../themes/catalog-helper";
 import type { ThemeStyles } from "@/types/theme";
 import { setToken } from "@/utils/tokens/edit";
 import { getPath } from "@/utils/tokens/object-path";
@@ -11,6 +13,8 @@ import { resolveTheme } from "@/utils/tokens/resolve";
 const store = () => useEditorStore.getState();
 
 beforeEach(() => {
+  // Les thèmes système viennent de la base : on hydrate le store comme le fait ThemeCatalogProvider.
+  useThemePresetStore.getState().setBuiltInPresets(builtInThemeRows());
   useEditorStore.setState({ themeState: { ...defaultThemeState }, history: [], future: [], themeCheckpoint: null });
 });
 

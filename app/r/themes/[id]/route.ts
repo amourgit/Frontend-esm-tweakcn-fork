@@ -6,7 +6,8 @@ import { registryItemSchema } from "shadcn/schema";
 import { getBuiltInThemeStyles } from "@/utils/theme-preset-helper";
 import { ThemeStyles } from "@/types/theme";
 
-export const dynamic = "force-static";
+// Les thèmes sont versionnés en base : la réponse doit refléter la version courante (pas de rendu statique figé).
+export const dynamic = "force-dynamic";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: rawId } = await params;
@@ -16,19 +17,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const id = scope === "complete" ? withoutExt.slice(0, -".complete".length) : rawId;
 
   try {
-    // First, check if this is a built-in theme
+    // Thèmes système ET thèmes utilisateur : tout vient de la base (version courante).
     let themeName: string;
     let themeStyles: ThemeStyles;
-
-    const builtInTheme = getBuiltInThemeStyles(id.replace(/\.json$/, ""));
-    if (builtInTheme) {
-      themeName = builtInTheme.name;
-      themeStyles = builtInTheme.styles;
-    } else {
-      // Fall back to database lookup for user-saved themes
-      const theme = await getTheme(id);
+    try {
+      const theme = await getTheme(id.replace(/\.json$/, ""));
       themeName = theme.name;
       themeStyles = theme.styles;
+    } catch (error) {
+      if ((error as Error).name !== "ThemeNotFoundError") throw error;
+      // Base pas encore initialisée : repli sur le fichier source des thèmes livrés.
+      const builtInTheme = getBuiltInThemeStyles(id.replace(/\.json$/, ""));
+      if (!builtInTheme) throw error;
+      themeName = builtInTheme.name;
+      themeStyles = builtInTheme.styles;
     }
 
     const generatedRegistryItem = generateThemeRegistryItemFromStyles(themeName, themeStyles, scope);
@@ -58,9 +60,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Content-Type": "application/json",
+        "Cache-Control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
       },
     });
   } catch (e) {
+    if ((e as Error).name === "ThemeNotFoundError") {
+      return new NextResponse("Theme not found.", { status: 404 });
+    }
     console.error("Error fetching the theme registry item:", e);
 
     return new NextResponse("Failed to fetch the theme registry item.", {
