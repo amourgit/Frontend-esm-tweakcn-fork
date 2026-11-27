@@ -6,6 +6,8 @@ export const ErrorCode = {
   VALIDATION_ERROR: "VALIDATION_ERROR",
   THEME_NOT_FOUND: "THEME_NOT_FOUND",
   THEME_LIMIT_REACHED: "THEME_LIMIT_REACHED",
+  THEME_VERSION_CONFLICT: "THEME_VERSION_CONFLICT",
+  THEME_FORBIDDEN: "THEME_FORBIDDEN",
   ALREADY_PUBLISHED: "ALREADY_PUBLISHED",
   UNKNOWN_ERROR: "UNKNOWN_ERROR",
 } as const;
@@ -58,6 +60,25 @@ export class ThemeNotFoundError extends Error {
   constructor(message = "Theme not found") {
     super(message);
     this.name = "ThemeNotFoundError";
+  }
+}
+
+/** La version de base fournie n'est plus la version courante (modification concurrente). */
+export class ThemeVersionConflictError extends Error {
+  constructor(
+    public currentVersion: number,
+    message = "Theme was modified by someone else. Reload it before saving."
+  ) {
+    super(message);
+    this.name = "ThemeVersionConflictError";
+  }
+}
+
+/** Action interdite sur ce thème (ex. suppression d'un thème système). */
+export class ThemeForbiddenError extends Error {
+  constructor(message = "This action is not allowed on this theme") {
+    super(message);
+    this.name = "ThemeForbiddenError";
   }
 }
 

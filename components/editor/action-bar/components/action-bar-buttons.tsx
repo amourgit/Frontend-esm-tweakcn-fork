@@ -1,6 +1,7 @@
 import { Separator } from "@/components/ui/separator";
 import { useEditorStore } from "@/store/editor-store";
 import { CodeButton } from "./code-button";
+import { HistoryButton } from "./history-button";
 import { ImportButton } from "./import-button";
 import { MoreOptions } from "./more-options";
 import { ResetButton } from "./reset-button";
@@ -14,6 +15,8 @@ interface ActionBarButtonsProps {
   onCodeClick: () => void;
   onSaveClick: () => void;
   onShareClick: (id?: string) => void;
+  /** Fourni seulement si le thème affiché est persisté et l'utilisateur connecté. */
+  onHistoryClick?: () => void;
   isSaving: boolean;
 }
 
@@ -22,6 +25,7 @@ export function ActionBarButtons({
   onCodeClick,
   onSaveClick,
   onShareClick,
+  onHistoryClick,
   isSaving,
 }: ActionBarButtonsProps) {
   const { themeState, resetToCurrentPreset, hasUnsavedChanges } = useEditorStore();
@@ -43,6 +47,7 @@ export function ActionBarButtons({
         <ImportButton onClick={onImportClick} />
       </div>
       <Separator orientation="vertical" className="mx-1 h-8" />
+      {onHistoryClick && <HistoryButton onClick={onHistoryClick} />}
       <ShareButton onClick={() => onShareClick(themeState.preset)} />
       <SaveButton onClick={onSaveClick} isSaving={isSaving} />
       <CodeButton onClick={onCodeClick} />

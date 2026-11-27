@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getThemes, getTheme } from "@/actions/themes";
+import { getThemes, getTheme, getThemeVersions } from "@/actions/themes";
 import { Theme } from "@/types/theme";
 
 export type ThemeWithPublished = Awaited<ReturnType<typeof getThemes>>[number];
@@ -10,6 +10,7 @@ export const themeKeys = {
   list: (filters: Record<string, any>) => [...themeKeys.lists(), { filters }] as const,
   details: () => [...themeKeys.all, "detail"] as const,
   detail: (id: string) => [...themeKeys.details(), { id }] as const,
+  versions: (id: string) => [...themeKeys.all, "versions", { id }] as const,
 };
 
 export function useThemesData(initialData?: ThemeWithPublished[]) {
@@ -43,4 +44,14 @@ export function usePrefetchThemes() {
       });
     });
   };
+}
+
+/** Historique des versions d'un thème (chargé seulement quand `enabled`). */
+export function useThemeVersions(themeId: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: themeKeys.versions(themeId!),
+    queryFn: () => getThemeVersions(themeId!),
+    enabled: enabled && !!themeId,
+    staleTime: 0,
+  });
 }

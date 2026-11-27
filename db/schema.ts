@@ -1,5 +1,14 @@
 import { ThemeStyles } from "@/types/theme";
-import { pgTable, json, timestamp, boolean, text } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  json,
+  timestamp,
+  boolean,
+  text,
+  integer,
+  index,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -51,16 +60,61 @@ export const verification = pgTable("verification", {
   updatedAt: timestamp("updated_at"),
 });
 
+/**
+ * Thème du studio. Une ligne = l'identité stable d'un thème ; son contenu historisé vit dans
+ * `theme_version`. `name`, `description` et `styles` sont l'instantané de la version courante
+ * (`current_version`) : ils sont réécrits dans la même transaction que la nouvelle version.
+ *
+ *  - `source = 'BUILT_IN'` : thème système (user_id NULL), importé au démarrage depuis les presets
+ *    livrés avec le dépôt ; son id est son slug historique (ex. "modern-minimal").
+ *  - `source = 'USER'` : thème créé dans le studio, propriété de `user_id`.
+ *  - `deleted_at` : suppression logique, l'historique des versions est conservé.
+ */
 export const theme = pgTable("theme", {
   id: text("id").primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
+  userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  source: text("source").$type<"BUILT_IN" | "USER">().notNull().default("USER"),
   name: text("name").notNull(),
+  description: text("description"),
   styles: json("styles").$type<ThemeStyles>().notNull(),
+  metadata: json("metadata").$type<Record<string, unknown>>().notNull().default({}),
+  currentVersion: integer("current_version").notNull().default(1),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").notNull(),
   updatedAt: timestamp("updated_at").notNull(),
 });
+
+export type ThemeVersionOrigin = "SEED" | "CREATE" | "UPDATE" | "RESTORE";
+
+/**
+ * Version immuable d'un thème : jamais modifiée après insertion. Chaque création, modification
+ * validée ou restauration ajoute une ligne (numéro incrémenté par thème).
+ * `content_hash` = empreinte SHA-256 du contenu (nom, description, styles) : sert à ne jamais
+ * enregistrer deux versions identiques à la suite.
+ */
+export const themeVersion = pgTable(
+  "theme_version",
+  {
+    id: text("id").primaryKey(),
+    themeId: text("theme_id")
+      .notNull()
+      .references(() => theme.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    styles: json("styles").$type<ThemeStyles>().notNull(),
+    metadata: json("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    changeNote: text("change_note"),
+    origin: text("origin").$type<ThemeVersionOrigin>().notNull(),
+    contentHash: text("content_hash").notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("theme_version_theme_id_version_unique").on(table.themeId, table.version),
+    index("theme_version_theme_id_idx").on(table.themeId),
+  ]
+);
 
 // OAuth 2.0 tables
 

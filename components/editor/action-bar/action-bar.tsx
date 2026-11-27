@@ -3,10 +3,19 @@
 import { ActionBarButtons } from "@/components/editor/action-bar/components/action-bar-buttons";
 import { HorizontalScrollArea } from "@/components/horizontal-scroll-area";
 import { useDialogActions } from "@/hooks/use-dialog-actions";
+import { authClient } from "@/lib/auth-client";
 
 export function ActionBar() {
-  const { isCreatingTheme, handleSaveClick, handleShareClick, setCssImportOpen, setCodePanelOpen } =
-    useDialogActions();
+  const {
+    isCreatingTheme,
+    handleSaveClick,
+    handleShareClick,
+    setCssImportOpen,
+    setCodePanelOpen,
+    setHistoryOpen,
+    historyThemeId,
+  } = useDialogActions();
+  const { data: session } = authClient.useSession();
 
   return (
     <div className="border-b">
@@ -17,6 +26,7 @@ export function ActionBar() {
           onSaveClick={() => handleSaveClick()}
           isSaving={isCreatingTheme}
           onShareClick={handleShareClick}
+          onHistoryClick={session && historyThemeId ? () => setHistoryOpen(true) : undefined}
         />
       </HorizontalScrollArea>
     </div>

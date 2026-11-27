@@ -142,6 +142,9 @@ export type ThemePreset = {
   source?: "SAVED" | "BUILT_IN";
   createdAt?: string;
   label?: string;
+  description?: string | null;
+  /** Version courante du thème en base (absent pour un preset non persisté). */
+  version?: number;
   styles: {
     light: PartialThemeStyleProps;
     dark: PartialThemeStyleProps;

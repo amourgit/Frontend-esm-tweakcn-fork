@@ -7,6 +7,8 @@ import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
 import path from "path";
 import { config } from "dotenv";
+import { seedBuiltInThemes } from "../lib/themes/seed";
+import { defaultPresets } from "../utils/theme-presets";
 
 config({ path: ".env.local" });
 config();
@@ -25,8 +27,14 @@ async function main() {
   const maxAttempts = 30;
   for (let attempt = 1; ; attempt++) {
     try {
-      await migrate(drizzle({ client: pool }), { migrationsFolder: folder });
+      const database = drizzle({ client: pool });
+      await migrate(database, { migrationsFolder: folder });
       console.log("[migrate] migrations appliquées.");
+      // Thèmes livrés avec le studio → base (idempotent : rien n'est réécrit s'ils existent déjà).
+      const seeded = await seedBuiltInThemes(database, defaultPresets);
+      console.log(
+        `[migrate] thèmes système : ${seeded.inserted} importé(s), ${seeded.existing} déjà présent(s).`
+      );
       break;
     } catch (error) {
       const code = (error as { code?: string }).code ?? "";
