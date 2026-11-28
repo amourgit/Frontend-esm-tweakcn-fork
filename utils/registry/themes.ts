@@ -88,7 +88,7 @@ const convertThemeStyles = (styles: ThemeStyles) => {
   };
 };
 
-// This method will do the same as "generateThemeRegistry" from `scripts/generate-theme-registry.ts`
+// Construit l'élément de registre shadcn d'un thème (utilisé par /r/themes/[id], depuis la base)
 export const generateThemeRegistryFromPreset = (name: string, scope: RegistryScope = "standard") => {
   const styles = getPresetThemeStyles(name);
   const registryItem = generateThemeRegistryItemFromStyles(name, styles, scope);
