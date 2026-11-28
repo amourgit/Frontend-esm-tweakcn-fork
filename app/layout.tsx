@@ -1,5 +1,5 @@
 import { AuthDialogWrapper } from "@/components/auth-dialog-wrapper";
-import { EgenNavSync } from "@/components/egen-nav-sync";
+import { EgenIntegration } from "@/components/egen/egen-integration";
 import { DynamicFontLoader } from "@/components/dynamic-font-loader";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeScript } from "@/components/theme-script";
@@ -47,8 +47,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head>
         <ThemeScript />
-        {/* Intégration EGEN : annonce la page courante au Core quand l'app est embarquée (inactif hors iframe) */}
-        <script src="/egen-bridge.js" defer data-mode="history" />
         <DynamicFontLoader />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
@@ -77,7 +75,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <ThemeProvider defaultTheme="light">
                 <TooltipProvider>
                   <AuthDialogWrapper />
-                  <EgenNavSync />
+                  <EgenIntegration />
                   <Toaster />
                   {children}
                 </TooltipProvider>

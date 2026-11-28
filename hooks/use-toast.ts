@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
+import { routeToCore } from "@/lib/egen/notify-bridge";
 
 const TOAST_LIMIT = 1;
 const TOAST_REMOVE_DELAY = 1000000;
@@ -140,6 +141,11 @@ type Toast = Omit<ToasterToast, "id">;
 
 function toast({ ...props }: Toast) {
   const id = genId();
+
+  // Embarqué dans le Core EGEN : le Core est l'afficheur des toasts (un seul toast, jamais de doublon).
+  if (routeToCore(props)) {
+    return { id, dismiss: () => undefined, update: (_props: ToasterToast) => undefined };
+  }
 
   const update = (props: ToasterToast) =>
     dispatch({

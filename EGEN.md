@@ -1,23 +1,38 @@
 # Intégration au Core EGEN
 
-EGEN Theme Studio est une **application externe** du Core EGEN (scénario C3 du doc 15 du Core : iframe + pont).
+EGEN Theme Studio est une **application embarquée** du Core EGEN : une app autonome dans une iframe, qui parle au Core par le **SDK** `@egen-civitas/esm-embed-client` (protocole v2). Une seule voie d'intégration : plus d'enveloppe `@civitas/esm-tweakcn-app`, plus de tarball, plus de pont `egen-bridge.js`.
 
 | Élément | Rôle |
 | --- | --- |
-| `middleware.ts`, `lib/frame-ancestors.ts` | `EGEN_FRAME_ANCESTORS` (lue à l'exécution) → `Content-Security-Policy: frame-ancestors 'self' <origines>`. Vide = comportement amont |
-| `integrations/egen/esm-tweakcn-app/` | enveloppe `@civitas/esm-tweakcn-app` (route `theme-studio`, rail gauche, nav) |
-| `public/egen-bridge.js`, `components/egen-nav-sync.tsx` | **navigation partagée** : l'URL du Core reflète la page courante (actualisation, retour/avance, lien partageable). Script vendorisé de `esm-nextjs-utils` ≥ 0.3.0, inactif hors iframe ; `router.push` au retour/avance |
-| `.github/workflows/egen-tweakcn-app.yml` | tag `egen-app-v<version>` → tests, build, `npm pack`, release |
+| `app/egen-config.json/route.ts`, `lib/egen/manifest.ts` | **Déclaration** publiée à `/egen-config.json` : identité, route `theme-studio`, rail gauche (`placement`), navigation `history`, capacités demandées, **droits d'iframe demandés** (`sandbox`, `allow`). Valide selon le protocole ; `EGEN_PUBLIC_URL` en donne l'URL |
+| `components/egen/egen-integration.tsx`, `lib/egen/navigation.ts` | Client SDK : **navigation partagée** (l'URL du Core reflète la page courante, retour/avance, lien partageable ; seuls les chemins internes sont acceptés), **langue** du Core |
+| `lib/egen/notify-bridge.ts`, `hooks/use-toast.ts` | **Toasts sans doublon** : embarqué, le Core est l'afficheur ; hors du Core, les toasts de l'app s'affichent comme avant |
+| `app/api/egen/host-origins/route.ts`, `middleware.ts`, `lib/frame-ancestors.ts` | `EGEN_FRAME_ANCESTORS` (runtime) → `Content-Security-Policy: frame-ancestors 'self' <origines>` et origines du Shell que le client accepte (jamais `*`) |
+
+## Ce que l'app demande, ce que l'opérateur approuve
+
+L'app **demande** ; l'opérateur du Core **approuve** un plafond dans son `external-apps.json` ; le Core applique l'**intersection**. Exemple d'entrée côté Core :
+
+```json
+{ "embed": [ {
+    "manifest": "https://design.exemple.org/egen-config.json",
+    "grants": {
+      "notifications": {},
+      "events": { "publish": ["app.theme-studio.*"], "subscribe": ["core.*"] },
+      "iframe": { "sandbox": ["allow-downloads", "allow-modals", "allow-popups-to-escape-sandbox"],
+                  "allow": ["clipboard-read", "clipboard-write", "fullscreen"] }
+    }
+} ] }
+```
+
+Identité, session, droits, thème et appels API ne passent **pas** par le SDK (règle d'or) : l'app les obtient auprès de leurs sources (Keycloak, service de thèmes, backends).
 
 ## En local
-1. `cp .env.example .env`, renseigner `DATABASE_URL`, `BETTER_AUTH_SECRET`, `EGEN_FRAME_ANCESTORS=http://localhost:<port du Core>` ; `pnpm dev` (http://localhost:3000).
-2. Core : configuration `{ "@civitas/esm-tweakcn-app": { "studioUrl": "http://localhost:3000" } }` ; app lancée avec `egen develop --sources "packages/apps/*" "<chemin>/integrations/egen/esm-tweakcn-app"`.
+1. `cp .env.example .env`, renseigner `DATABASE_URL`, `BETTER_AUTH_SECRET`, `EGEN_PUBLIC_URL=http://localhost:3000`, `EGEN_FRAME_ANCESTORS=http://localhost:<port du Core>` ; `pnpm dev`.
+2. Core : entrée `embed` ci-dessus avec `manifest` = `http://localhost:3000/egen-config.json` (`EGEN_ALLOW_HTTP=1` pour `http` en local), puis `yarn external:sync`.
 
 ## En production (à froid)
-Déployer l'image (`docker compose up -d --build`), puis dans le Core : déclarer le tarball de release dans `external-apps.json`, `EGEN_CONFIG_FILE` avec `studioUrl`, `yarn prepare:prod`, redémarrer.
-
-## Navigation partagée
-`navigation` (`history` par défaut, `hash`, `none`) dans la configuration du Core, par instance. Spécification : `docs/integration-apps/16-navigation-partagee-apps-externes.md` du Core. Le wrapper ≥ 1.1.0 exige `@egen-civitas/esm-nextjs-utils` ≥ 0.3.0.
+Déployer l'image (`docker compose up -d --build`) avec `EGEN_PUBLIC_URL` (https) et `EGEN_FRAME_ANCESTORS` (origine du Shell). Dans le Core : déclarer l'entrée `embed`, `yarn external:sync`, redémarrer. Aucune publication de paquet.
 
 ## Tokens de design
 
