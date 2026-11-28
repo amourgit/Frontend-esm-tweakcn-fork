@@ -1,8 +1,17 @@
-export { useThemesData, useThemeData, usePrefetchThemes, useThemeVersions, themeKeys } from "./use-themes-data";
+export {
+  useThemesData,
+  useThemeData,
+  usePrefetchThemes,
+  useThemeDetails,
+  useThemeRevisions,
+  useThemeVersions,
+  themeKeys,
+} from "./use-themes-data";
 export {
   useCreateTheme,
-  useUpdateTheme,
+  useSaveThemeState,
+  useCreateThemeVersion,
+  useRestoreThemeRevision,
   useDeleteTheme,
-  useRestoreThemeVersion,
 } from "./use-theme-mutations";
 export type { ThemeSaveInput } from "./use-theme-mutations";

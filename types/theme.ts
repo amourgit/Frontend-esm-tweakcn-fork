@@ -143,8 +143,11 @@ export type ThemePreset = {
   createdAt?: string;
   label?: string;
   description?: string | null;
-  /** Version courante du thème en base (absent pour un preset non persisté). */
-  version?: number;
+  /** Dernière version publiée du thème (null/absent : aucune, ou preset non persisté). */
+  version?: number | null;
+  /** État courant du thème en base. */
+  revision?: number;
+  isDefault?: boolean;
   styles: {
     light: PartialThemeStyleProps;
     dark: PartialThemeStyleProps;

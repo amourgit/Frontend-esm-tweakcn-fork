@@ -1,4 +1,5 @@
 import { ThemeStyles } from "@/types/theme";
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   json,
@@ -61,36 +62,83 @@ export const verification = pgTable("verification", {
 });
 
 /**
- * Thème du studio. Une ligne = l'identité stable d'un thème ; son contenu historisé vit dans
- * `theme_version`. `name`, `description` et `styles` sont l'instantané de la version courante
- * (`current_version`) : ils sont réécrits dans la même transaction que la nouvelle version.
+ * Thème du studio — modèle à la GitHub :
  *
- *  - `source = 'BUILT_IN'` : thème système (user_id NULL), importé au démarrage depuis les presets
- *    livrés avec le dépôt ; son id est son slug historique (ex. "modern-minimal").
- *  - `source = 'USER'` : thème créé dans le studio, propriété de `user_id`.
- *  - `deleted_at` : suppression logique, l'historique des versions est conservé.
+ *  - `theme_revision` = un **état** : chaque enregistrement d'une modification ajoute un état
+ *    (comme un commit). Tous les états sont conservés, numérotés 1, 2, 3… par thème.
+ *  - `theme_version`  = une **version** : étiquette (comme un tag/release) posée sur UN état précis.
+ *    Une modification n'est donc pas forcément une nouvelle version.
+ *
+ * Cette table porte l'identité du thème et l'instantané de son état courant (`current_revision`) :
+ * `name`, `description`, `styles` sont réécrits dans la même transaction que le nouvel état.
+ * `current_version` = numéro de la dernière version publiée (NULL tant qu'aucune).
+ *
+ *  - `source = 'BUILT_IN'` : thème système (user_id NULL, auteur = le système), lisible par tous,
+ *    jamais modifiable : on en tire une copie dérivée qui appartient à l'utilisateur.
+ *  - `source = 'USER'` : thème d'un utilisateur, que lui seul peut modifier.
+ *  - `is_default` : thème pris par défaut par le studio (au plus un, garanti par un index unique partiel).
+ *  - `deleted_at` : suppression logique, l'historique est conservé.
  */
-export const theme = pgTable("theme", {
-  id: text("id").primaryKey(),
-  userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
-  source: text("source").$type<"BUILT_IN" | "USER">().notNull().default("USER"),
-  name: text("name").notNull(),
-  description: text("description"),
-  styles: json("styles").$type<ThemeStyles>().notNull(),
-  metadata: json("metadata").$type<Record<string, unknown>>().notNull().default({}),
-  currentVersion: integer("current_version").notNull().default(1),
-  deletedAt: timestamp("deleted_at"),
-  createdAt: timestamp("created_at").notNull(),
-  updatedAt: timestamp("updated_at").notNull(),
-});
+export const theme = pgTable(
+  "theme",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+    source: text("source").$type<"BUILT_IN" | "USER">().notNull().default("USER"),
+    name: text("name").notNull(),
+    description: text("description"),
+    styles: json("styles").$type<ThemeStyles>().notNull(),
+    metadata: json("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    isDefault: boolean("is_default").notNull().default(false),
+    currentRevision: integer("current_revision").notNull().default(1),
+    currentVersion: integer("current_version"),
+    deletedAt: timestamp("deleted_at"),
+    createdAt: timestamp("created_at").notNull(),
+    updatedAt: timestamp("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("theme_single_default_idx")
+      .on(table.isDefault)
+      .where(sql`${table.isDefault} = true`),
+  ]
+);
 
-export type ThemeVersionOrigin = "SEED" | "CREATE" | "UPDATE" | "RESTORE";
+export type ThemeRevisionOrigin = "SEED" | "CREATE" | "DERIVE" | "SAVE" | "RESTORE";
 
 /**
- * Version immuable d'un thème : jamais modifiée après insertion. Chaque création, modification
- * validée ou restauration ajoute une ligne (numéro incrémenté par thème).
- * `content_hash` = empreinte SHA-256 du contenu (nom, description, styles) : sert à ne jamais
- * enregistrer deux versions identiques à la suite.
+ * Un état d'un thème : immuable, jamais modifié après insertion.
+ * `parent_revision` = l'état dont il découle (NULL pour le premier). `content_hash` = empreinte
+ * SHA-256 du contenu (nom, description, styles) : sert à ne jamais enregistrer deux états
+ * consécutifs identiques.
+ */
+export const themeRevision = pgTable(
+  "theme_revision",
+  {
+    id: text("id").primaryKey(),
+    themeId: text("theme_id")
+      .notNull()
+      .references(() => theme.id, { onDelete: "cascade" }),
+    revision: integer("revision").notNull(),
+    parentRevision: integer("parent_revision"),
+    name: text("name").notNull(),
+    description: text("description"),
+    styles: json("styles").$type<ThemeStyles>().notNull(),
+    metadata: json("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    message: text("message"),
+    origin: text("origin").$type<ThemeRevisionOrigin>().notNull(),
+    contentHash: text("content_hash").notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("theme_revision_theme_id_revision_unique").on(table.themeId, table.revision),
+    index("theme_revision_theme_id_idx").on(table.themeId),
+  ]
+);
+
+/**
+ * Une version : étiquette numérotée (1, 2, 3…) posée sur un état précis d'un thème.
+ * Un état porte au plus une version (unicité sur `revision_id`), un numéro n'est jamais réutilisé.
  */
 export const themeVersion = pgTable(
   "theme_version",
@@ -100,19 +148,16 @@ export const themeVersion = pgTable(
       .notNull()
       .references(() => theme.id, { onDelete: "cascade" }),
     version: integer("version").notNull(),
-    name: text("name").notNull(),
-    description: text("description"),
-    styles: json("styles").$type<ThemeStyles>().notNull(),
-    metadata: json("metadata").$type<Record<string, unknown>>().notNull().default({}),
-    changeNote: text("change_note"),
-    origin: text("origin").$type<ThemeVersionOrigin>().notNull(),
-    contentHash: text("content_hash").notNull(),
+    revisionId: text("revision_id")
+      .notNull()
+      .references(() => themeRevision.id, { onDelete: "cascade" }),
+    notes: text("notes"),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at").notNull(),
   },
   (table) => [
     uniqueIndex("theme_version_theme_id_version_unique").on(table.themeId, table.version),
-    index("theme_version_theme_id_idx").on(table.themeId),
+    uniqueIndex("theme_version_revision_id_unique").on(table.revisionId),
   ]
 );
 

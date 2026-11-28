@@ -17,6 +17,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ them
       name: themeTable.name,
       description: themeTable.description,
       version: themeTable.currentVersion,
+      revision: themeTable.currentRevision,
       metadata: themeTable.metadata,
       styles: themeTable.styles,
       createdAt: themeTable.createdAt,
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ them
   }
 
   const etag = `"${createHash("sha256")
-    .update(`${theme.id}:${theme.version}:${theme.updatedAt.toISOString()}`)
+    .update(`${theme.id}:${theme.revision}:${theme.updatedAt.toISOString()}`)
     .digest("hex")
     .slice(0, 32)}"`;
 

@@ -1,64 +1,73 @@
-# Persistance et versionnement des thèmes
+# Persistance, états, versions et propriété des thèmes
 
-Le studio gère lui-même ses thèmes en base PostgreSQL, indépendamment de TokiForge : chaque thème est
-tracé, versionné et restaurable. Le `localStorage` / IndexedDB du navigateur ne sert qu'à la continuité
-d'édition (brouillon, annuler/rétablir) ; la vérité est en base.
+Le studio gère lui-même ses thèmes en base PostgreSQL, indépendamment de TokiForge. Le navigateur
+(localStorage / IndexedDB) ne sert qu'à la continuité d'édition ; la vérité est en base.
 
-## Modèle de données
+## Modèle « à la GitHub »
 
-| Table | Rôle |
-|---|---|
-| `theme` | Identité d'un thème + **instantané de la version courante** (`name`, `description`, `styles`, `metadata`, `current_version`). `source` = `BUILT_IN` (thème système, `user_id` NULL) ou `USER`. `deleted_at` = suppression logique. |
-| `theme_version` | Historique **immuable** : une ligne par version (`version` 1, 2, 3…, sans trou). Contient `name`, `description`, `styles`, `metadata` (JSON libre), `change_note`, `origin` (`SEED` / `CREATE` / `UPDATE` / `RESTORE`), `content_hash`, `created_by`, `created_at`. |
+| Notion | Table | Équivalent Git | Règle |
+|---|---|---|---|
+| **État** | `theme_revision` | commit | Chaque enregistrement ajoute un état (1, 2, 3…, sans trou, immuable, `parent_revision`, `message`, auteur). Un contenu identique à l'état courant ne crée rien. |
+| **Version** | `theme_version` | tag / release | Étiquette numérotée posée sur **un état précis** (`revision_id`, notes). Un état porte au plus une version ; un numéro n'est jamais réutilisé. |
+| **Thème** | `theme` | branche | Identité + instantané de l'état courant (`current_revision`) + dernière version publiée (`current_version`, NULL si aucune). |
 
-Invariants (garantis dans une transaction à chaque écriture, voir `lib/themes/service.ts`) :
-`theme.current_version` = plus grand numéro de version ; l'instantané = contenu de cette version ;
-unicité `(theme_id, version)` ; jamais deux versions consécutives de contenu identique.
+Une modification n'est donc **pas forcément une nouvelle version** : elle crée un état ; on pose une
+version quand on le décide, sur l'état voulu (le dernier ou un ancien). La **restauration** d'un état
+crée un nouvel état (comme `git revert`) : l'historique n'est jamais réécrit.
 
-## Cycle de vie
+Invariants (une transaction par écriture, thème verrouillé — `lib/themes/`) : l'instantané du thème
+= contenu de l'état courant ; numéros sans trou ; unicité `(theme_id, revision)` et `(theme_id, version)`.
 
-- **Création** (« Save as a new theme ») : thème `USER` + version 1.
-- **Modification validée** (« New version of … ») : nouvelle version sur le **même** thème, avec nom,
-  description et note de changement saisis pour cette version. Un contenu identique à la version
-  courante ne crée rien. `baseVersion` détecte une modification concurrente (conflit explicite).
-- **Historique** (bouton *History* de l'éditeur) : consulter, ouvrir une version dans l'éditeur sans
-  l'enregistrer, ou la **restaurer** (crée une nouvelle version ; l'historique n'est jamais réécrit).
-- **Suppression** d'un thème utilisateur : logique, l'historique est conservé. Un thème système ne se supprime pas.
+## Propriété et auteurs (projets personnels)
 
-## Thèmes livrés avec le dépôt (42)
+- **Thèmes système** (`source = BUILT_IN`, auteur = le système) : les 42 thèmes livrés + le **thème par
+  défaut**. Lisibles par tous, chargés dans le studio quel que soit l'utilisateur, **jamais modifiables**.
+- **Thèmes utilisateur** (`source = USER`) : visibles, modifiables, versionnables, restaurables et
+  supprimables **uniquement par leur propriétaire**. Toute tentative d'un autre utilisateur est refusée
+  comme « introuvable » (on ne révèle pas leur existence).
+- **Dériver** : enregistrer une modification d'un thème système (ou « Save as a new theme ») crée un
+  thème **appartenant à l'utilisateur**, auteur = cet utilisateur, avec `derivedFrom`
+  (thème, état et version d'origine, relevés par le serveur).
+- **Auteurs dans les métadonnées** : `metadata.author = { type: "system"|"user", id, name }` sur le thème
+  et sur chaque état (l'auteur de CETTE modification). Les clés `author`, `derivedFrom`,
+  `restoredFromRevision` sont réservées au serveur : le client ne peut pas les fournir.
+- Les règles sont centralisées dans `lib/themes/permissions.ts` : quand la notion de **projet** arrivera,
+  c'est là que seront branchées les permissions de projet (qui modifie, qui crée des versions…).
 
-`utils/theme-presets.ts` est désormais la **source du seed**, plus un chargement à l'exécution :
-au démarrage (`node migrate.cjs` dans le conteneur, ou `pnpm db:migrate` / `pnpm db:seed` en dev),
-chaque preset est importé comme thème système en **version 1**, avec ses métadonnées
-(`origin: "tweakcn-official"`, `seed.key`, `seed.file`).
+## Thème par défaut
 
-- L'`id` du thème est son slug historique (`modern-minimal`…) : les URLs `?theme=…`, `/r/themes/<slug>.json`
-  et les états déjà persistés continuent de fonctionner.
-- **Idempotent** : `ON CONFLICT DO NOTHING` + verrou consultatif ; redémarrages et instances
-  simultanées ne créent aucun doublon. Un thème déjà présent n'est **jamais réécrit** : la base fait foi,
-  même si le fichier source change.
-- Le studio charge ces thèmes depuis la base (page éditeur → `ThemeCatalogProvider` → store de presets).
-- Les 19 presets sans date sont ancrés au 2025-04-01 (`metadata.seed.createdAtEstimated`) pour ne pas
-  apparaître « nouveaux » dans le sélecteur.
+Un thème système comme les autres (`id = "default"`), repéré par l'attribut **`is_default`** (au plus
+un, garanti par un index unique partiel). Le studio prend par défaut celui dont l'attribut est coché
+(`defaultPresetId` dans le store) ; changer l'attribut change le thème par défaut.
 
-## Droits
+## Seed des thèmes système
 
-- Thème `USER` : visible et modifiable par son propriétaire uniquement.
-- Thème `BUILT_IN` : lisible par tous ; une nouvelle version peut être enregistrée par tout utilisateur
-  connecté (l'auteur est tracé dans `created_by` ; toute version est restaurable).
+`utils/theme-presets.ts` est la **source du seed**, plus un chargement à l'exécution. Au démarrage
+(`node migrate.cjs` dans le conteneur, `pnpm db:migrate` / `pnpm db:seed` en dev) : 42 thèmes + le thème
+par défaut, chacun en **état 1 + version 1**. Idempotent (clé primaire = slug, `ON CONFLICT DO NOTHING`,
+verrou consultatif, une transaction) ; un thème déjà présent n'est **jamais réécrit**. Les 19 presets
+sans date sont ancrés au 2025-04-01 (`metadata.seed.createdAtEstimated`).
+
+## Studio
+
+- **Enregistrer** : sur son thème → « Save a state » (nom, description, *What changed?*, case « Also
+  create version N ») ou « Save as a new theme » ; sur un thème système → copie dérivée.
+- **History** : onglet *States* (ouvrir dans l'éditeur sans enregistrer, restaurer, créer une version sur
+  un état) et onglet *Versions*. Les thèmes système y sont en lecture seule.
+- **Theme details** (panneau de gauche, sous le sélecteur) : nom, type, auteur, version (+ états non
+  publiés), versions, état courant, dates de création/modification, provenance, description, métadonnées.
+- Code : `components/editor/theme-history/`, `components/editor/theme-info/`, `hooks/themes/`.
 
 ## API
 
-- Server actions (`actions/themes.ts`) : `getBuiltInThemes`, `getThemes`, `getTheme`, `createTheme`,
-  `updateTheme`, `deleteTheme`, `getThemeVersions`, `getThemeVersion`, `restoreThemeVersion`.
-- `GET /r/themes/<id>.json` (registre shadcn) : sert désormais la **version courante** depuis la base
-  (plus de JSON statiques générés au build).
-- `GET /api/v1/themes` et `/api/v1/themes/<id>` : exposent en plus `description`, `version` et `metadata`
-  (additif, rétro-compatible) ; les thèmes supprimés sont exclus. Ces routes ne renvoient que les thèmes
-  de l'utilisateur autorisé (pas les thèmes système).
+- Server actions (`actions/themes.ts`) : `getSystemThemes`, `getThemes`, `getTheme`, `getThemeForEditor`,
+  `getThemeDetails`, `getThemeRevisions`, `getThemeRevision`, `getThemeVersions`, `createTheme`,
+  `saveThemeState`, `createThemeVersion`, `restoreThemeRevision`, `deleteTheme`.
+- `GET /r/themes/<id>.json` : état courant depuis la base (thème par défaut compris), 404 si inconnu.
+- `GET /api/v1/themes[/<id>]` : ajoute `description`, `version`, `revision`, `metadata` ; seulement les
+  thèmes de l'utilisateur autorisé (pas les thèmes système).
 
 ## Tests
 
-`__tests__/themes/` : PostgreSQL en mémoire (PGlite) avec **toutes** les migrations — reprise de
-l'existant, seed (idempotence, concurrence, parité avec l'ancien chargement fichier), versionnement,
-conflits, restauration, droits, suppression logique ; plus le store de presets.
+`__tests__/themes/` (PGlite, toutes les migrations) : reprise d'une base existante (0000→0002), seed,
+états, versions, propriété/dérivation, fiche d'identité, store, lignes affichées.

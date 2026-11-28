@@ -1,10 +1,14 @@
 import { CodePanelDialog } from "@/components/editor/code-panel-dialog";
 import CssImportDialog from "@/components/editor/css-import-dialog";
 import { ShareDialog } from "@/components/editor/share-dialog";
-import { ThemeSaveDialog, type ThemeSaveValues } from "@/components/editor/theme-save-dialog";
-import { ThemeHistoryDialog } from "@/components/editor/theme-history-dialog";
+import {
+  ThemeSaveDialog,
+  type ExistingThemeInfo,
+  type ThemeSaveValues,
+} from "@/components/editor/theme-save-dialog";
+import { ThemeHistoryDialog } from "@/components/editor/theme-history/theme-history-dialog";
 import { toast } from "@/components/ui/use-toast";
-import { useCreateTheme, useUpdateTheme } from "@/hooks/themes";
+import { useCreateTheme, useSaveThemeState } from "@/hooks/themes";
 import { usePostLoginAction } from "@/hooks/use-post-login-action";
 import { authClient } from "@/lib/auth-client";
 import { useAuthStore } from "@/store/auth-store";
@@ -43,9 +47,10 @@ interface DialogActionsContextType {
   isCreatingTheme: boolean;
   isUpdatingTheme: boolean;
   pendingAction: PendingAction;
-  existingThemeName: string | undefined;
-  existingThemeDescription: string | null | undefined;
-  existingVersion: number | undefined;
+  /** Thème DE L'UTILISATEUR modifié : on peut enregistrer un nouvel état (et une version). */
+  existingTheme: ExistingThemeInfo | undefined;
+  /** Thème persisté dont la copie en cours dérivera (thème système, ou thème de l'utilisateur). */
+  derivedFromName: string | undefined;
   historyOpen: boolean;
   /** Thème persisté (système ou enregistré) actuellement affiché, dont on peut consulter l'historique. */
   historyThemeId: string | undefined;
@@ -82,20 +87,28 @@ function useDialogActionsStore(): DialogActionsContextType {
     hasThemeChangedFromCheckpoint,
     hasUnsavedChanges,
   } = useEditorStore();
-  const { getPreset } = useThemePresetStore();
+  const { getPreset, defaultPresetId } = useThemePresetStore();
   const { data: session } = authClient.useSession();
   const { openAuthDialog } = useAuthStore();
   const createThemeMutation = useCreateTheme();
-  const updateThemeMutation = useUpdateTheme();
+  const saveStateMutation = useSaveThemeState();
 
   const currentPreset = themeState?.preset ? getPreset(themeState.preset) : undefined;
-  // Un thème persisté (enregistré OU système) modifié peut recevoir une nouvelle version.
+  // Propriété : on n'enregistre un état que sur SES thèmes. Un thème système n'est jamais modifié :
+  // l'enregistrement crée une copie dérivée qui appartient à l'utilisateur.
   const isPersistedPreset =
     !!currentPreset && (currentPreset.source === "SAVED" || currentPreset.source === "BUILT_IN");
-  const isOnEditablePreset = isPersistedPreset && hasUnsavedChanges();
-  const existingThemeName = isOnEditablePreset ? currentPreset.label : undefined;
-  const existingThemeDescription = isOnEditablePreset ? currentPreset.description : undefined;
-  const existingVersion = isOnEditablePreset ? currentPreset.version : undefined;
+  const isOwnPreset = currentPreset?.source === "SAVED";
+  const existingTheme: ExistingThemeInfo | undefined =
+    isOwnPreset && hasUnsavedChanges()
+      ? {
+          name: currentPreset.label ?? "",
+          description: currentPreset.description ?? null,
+          revision: currentPreset.revision,
+          version: currentPreset.version ?? null,
+        }
+      : undefined;
+  const derivedFromName = isPersistedPreset ? currentPreset.label : undefined;
   const historyThemeId = isPersistedPreset ? themeState.preset : undefined;
 
   usePostLoginAction("SAVE_THEME", () => {
@@ -170,13 +183,16 @@ function useDialogActionsStore(): DialogActionsContextType {
     const themeData = {
       name: values.name,
       description: values.description,
+      message: values.message,
       styles: themeState.styles,
+      // Provenance : le serveur en relève lui-même l'état et la version.
+      derivedFromThemeId: isPersistedPreset ? themeState.preset : undefined,
     };
 
     try {
       const theme = await createThemeMutation.mutateAsync(themeData);
       if (!theme) return;
-      applyThemePreset(theme?.id || themeState.preset || "default");
+      applyThemePreset(theme?.id || themeState.preset || defaultPresetId);
       if (pendingAction === "share") {
         handleShareClick(theme?.id);
         setPendingAction(null);
@@ -217,21 +233,22 @@ function useDialogActionsStore(): DialogActionsContextType {
   const handleUpdateExisting = async (values: ThemeSaveValues) => {
     if (!themeState.preset) return;
     try {
-      const result = await updateThemeMutation.mutateAsync({
+      const result = await saveStateMutation.mutateAsync({
         id: themeState.preset,
         name: values.name,
         description: values.description,
-        changeNote: values.changeNote,
+        message: values.message,
         styles: themeState.styles,
-        // Détecte une modification concurrente du même thème depuis un autre onglet/utilisateur.
-        baseVersion: existingVersion,
+        // Détecte une modification concurrente du même thème depuis un autre onglet.
+        baseRevision: existingTheme?.revision,
+        release: values.release ?? undefined,
       });
       if (result) {
         applyThemePreset(result.id || themeState.preset);
         setSaveDialogOpen(false);
       }
     } catch (error) {
-      console.error("Failed to update theme:", error);
+      console.error("Failed to save theme state:", error);
     }
   };
 
@@ -244,11 +261,10 @@ function useDialogActionsStore(): DialogActionsContextType {
     shareUrl,
     dialogKey,
     isCreatingTheme: createThemeMutation.isPending,
-    isUpdatingTheme: updateThemeMutation.isPending,
+    isUpdatingTheme: saveStateMutation.isPending,
     pendingAction,
-    existingThemeName,
-    existingThemeDescription,
-    existingVersion,
+    existingTheme,
+    derivedFromName,
     historyOpen,
     historyThemeId,
 
@@ -296,9 +312,8 @@ export function DialogActionsProvider({ children }: { children: ReactNode }) {
         onOpenChange={store.setSaveDialogOpen}
         onSave={store.saveTheme}
         isSaving={store.isCreatingTheme}
-        existingThemeName={store.existingThemeName}
-        existingThemeDescription={store.existingThemeDescription}
-        existingVersion={store.existingVersion}
+        existingTheme={store.existingTheme}
+        derivedFromName={store.derivedFromName}
         onUpdateExisting={store.handleUpdateExisting}
         isUpdating={store.isUpdatingTheme}
         {...getSaveDialogCopy(store.pendingAction)}

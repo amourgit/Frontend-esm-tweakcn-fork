@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { ThemeEditorState } from "@/types/editor";
 import { defaultThemeState } from "@/config/theme";
+import { useThemePresetStore } from "./theme-preset-store";
 import { getPresetThemeStyles } from "@/utils/theme-preset-helper";
 import { isDeepEqual } from "@/lib/utils";
 
@@ -143,7 +144,7 @@ export const useEditorStore = create<EditorStore>()(
       },
       hasUnsavedChanges: () => {
         const themeState = get().themeState;
-        const presetThemeStyles = getPresetThemeStyles(themeState.preset ?? "default");
+        const presetThemeStyles = getPresetThemeStyles(themeState.preset ?? useThemePresetStore.getState().defaultPresetId);
         const stylesChanged = !isDeepEqual(themeState.styles, presetThemeStyles);
         const hslChanged = !isDeepEqual(
           themeState.hslAdjustments,
@@ -154,7 +155,7 @@ export const useEditorStore = create<EditorStore>()(
       resetToCurrentPreset: () => {
         const currentThemeState = get().themeState;
 
-        const presetThemeStyles = getPresetThemeStyles(currentThemeState.preset ?? "default");
+        const presetThemeStyles = getPresetThemeStyles(currentThemeState.preset ?? useThemePresetStore.getState().defaultPresetId);
         const newThemeState: ThemeEditorState = {
           ...currentThemeState,
           styles: presetThemeStyles,

@@ -66,8 +66,12 @@ const isThemeNew = (preset: ThemePreset) => {
 const ThemeControls = () => {
   const applyThemePreset = useEditorStore((store) => store.applyThemePreset);
   const presets = useThemePresetStore((store) => store.getAllPresets());
+  const defaultId = useThemePresetStore((store) => store.defaultPresetId);
 
-  const presetNames = useMemo(() => ["default", ...Object.keys(presets)], [presets]);
+  const presetNames = useMemo(
+    () => Array.from(new Set([defaultId, ...Object.keys(presets)])),
+    [defaultId, presets]
+  );
 
   const randomize = useCallback(() => {
     const random = Math.floor(Math.random() * presetNames.length);
@@ -184,6 +188,7 @@ const ThemePresetSelect: React.FC<ThemePresetSelectProps> = ({
   const mode = themeState.currentMode;
 
   const presets = useThemePresetStore((store) => store.getAllPresets());
+  const defaultId = useThemePresetStore((store) => store.defaultPresetId);
   const loadSavedPresets = useThemePresetStore((store) => store.loadSavedPresets);
   const unloadSavedPresets = useThemePresetStore((store) => store.unloadSavedPresets);
 
@@ -206,7 +211,10 @@ const ThemePresetSelect: React.FC<ThemePresetSelectProps> = ({
     [presets]
   );
 
-  const presetNames = useMemo(() => ["default", ...Object.keys(presets)], [presets]);
+  const presetNames = useMemo(
+    () => Array.from(new Set([defaultId, ...Object.keys(presets)])),
+    [defaultId, presets]
+  );
   const currentPresetName = presetNames?.find((name) => name === currentPreset);
 
   const filteredPresets = useMemo(() => {
@@ -214,21 +222,21 @@ const ThemePresetSelect: React.FC<ThemePresetSelectProps> = ({
       search.trim() === ""
         ? presetNames
         : presetNames.filter((name) => {
-          if (name === "default") {
-            return "default".toLowerCase().includes(search.toLowerCase());
+          if (name === defaultId && !presets[name]) {
+            return "default".includes(search.toLowerCase());
           }
           return presets[name]?.label?.toLowerCase().includes(search.toLowerCase());
         });
 
     // Separate saved and default themes
-    const savedThemesList = filteredList.filter((name) => name !== "default" && isSavedTheme(name));
+    const savedThemesList = filteredList.filter((name) => name !== defaultId && isSavedTheme(name));
     const defaultThemesList = filteredList.filter((name) => !savedThemesList.includes(name));
 
     // Sort each list, with "default" at the top for default themes
     const sortThemes = (list: string[]) => {
-      const defaultTheme = list.filter((name) => name === "default");
+      const defaultTheme = list.filter((name) => name === defaultId);
       const otherThemes = list
-        .filter((name) => name !== "default")
+        .filter((name) => name !== defaultId)
         .sort((a, b) => {
           const labelA = presets[a]?.label || a;
           const labelB = presets[b]?.label || b;
@@ -239,15 +247,15 @@ const ThemePresetSelect: React.FC<ThemePresetSelectProps> = ({
 
     // Combine saved themes first, then default themes
     return [...sortThemes(savedThemesList), ...sortThemes(defaultThemesList)];
-  }, [presetNames, search, presets, isSavedTheme]);
+  }, [presetNames, search, presets, isSavedTheme, defaultId]);
 
   const filteredSavedThemes = useMemo(() => {
-    return filteredPresets.filter((name) => name !== "default" && isSavedTheme(name));
-  }, [filteredPresets, isSavedTheme]);
+    return filteredPresets.filter((name) => name !== defaultId && isSavedTheme(name));
+  }, [filteredPresets, isSavedTheme, defaultId]);
 
   const filteredDefaultThemes = useMemo(() => {
-    return filteredPresets.filter((name) => name === "default" || !isSavedTheme(name));
-  }, [filteredPresets, isSavedTheme]);
+    return filteredPresets.filter((name) => name === defaultId || !isSavedTheme(name));
+  }, [filteredPresets, isSavedTheme, defaultId]);
 
   return (
     <div className="flex w-full items-center">
@@ -265,7 +273,7 @@ const ThemePresetSelect: React.FC<ThemePresetSelectProps> = ({
                 <ColorBox color={themeState.styles[mode].secondary} />
                 <ColorBox color={themeState.styles[mode].border} />
               </div>
-              {currentPresetName !== "default" &&
+              {currentPresetName !== defaultId &&
                 currentPresetName &&
                 isSavedTheme(currentPresetName) &&
                 !hasUnsavedChanges() && (
@@ -278,7 +286,7 @@ const ThemePresetSelect: React.FC<ThemePresetSelectProps> = ({
                   </div>
                 )}
               <span className="truncate text-left font-medium capitalize">
-                {presets[currentPresetName || "default"]?.label ||
+                {presets[currentPresetName || defaultId]?.label ||
                   currentPresetName ||
                   "default"}
                 {hasUnsavedChanges() && "*"}
@@ -332,7 +340,7 @@ const ThemePresetSelect: React.FC<ThemePresetSelectProps> = ({
                     }
                   >
                     {filteredSavedThemes
-                      .filter((name) => name !== "default" && isSavedTheme(name))
+                      .filter((name) => name !== defaultId && isSavedTheme(name))
                       .map((presetName, index) => (
                         <CommandItem
                           key={`${presetName}-${index}`}
@@ -428,7 +436,7 @@ const ThemePresetSelect: React.FC<ThemePresetSelectProps> = ({
       {withCycleThemes && (
         <ThemePresetCycleControls
           filteredPresets={filteredPresets}
-          currentPresetName={currentPresetName || "default"}
+          currentPresetName={currentPresetName || defaultId}
           className={className}
           disabled={props.disabled}
         />

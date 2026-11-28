@@ -6,7 +6,8 @@ export const ErrorCode = {
   VALIDATION_ERROR: "VALIDATION_ERROR",
   THEME_NOT_FOUND: "THEME_NOT_FOUND",
   THEME_LIMIT_REACHED: "THEME_LIMIT_REACHED",
-  THEME_VERSION_CONFLICT: "THEME_VERSION_CONFLICT",
+  THEME_REVISION_CONFLICT: "THEME_REVISION_CONFLICT",
+  THEME_ALREADY_VERSIONED: "THEME_ALREADY_VERSIONED",
   THEME_FORBIDDEN: "THEME_FORBIDDEN",
   ALREADY_PUBLISHED: "ALREADY_PUBLISHED",
   UNKNOWN_ERROR: "UNKNOWN_ERROR",
@@ -63,14 +64,25 @@ export class ThemeNotFoundError extends Error {
   }
 }
 
-/** La version de base fournie n'est plus la version courante (modification concurrente). */
-export class ThemeVersionConflictError extends Error {
+/** L'état de base fourni n'est plus l'état courant du thème (modification concurrente). */
+export class ThemeRevisionConflictError extends Error {
   constructor(
-    public currentVersion: number,
+    public currentRevision: number,
     message = "Theme was modified by someone else. Reload it before saving."
   ) {
     super(message);
-    this.name = "ThemeVersionConflictError";
+    this.name = "ThemeRevisionConflictError";
+  }
+}
+
+/** Cet état porte déjà une version : on n'en pose pas deux sur le même état. */
+export class ThemeRevisionAlreadyVersionedError extends Error {
+  constructor(
+    public version: number,
+    message = `This state already has version ${version}.`
+  ) {
+    super(message);
+    this.name = "ThemeRevisionAlreadyVersionedError";
   }
 }
 
