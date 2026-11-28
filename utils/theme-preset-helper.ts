@@ -25,13 +25,10 @@ export function getBuiltInThemeStyles(name: string): { name: string; styles: The
 }
 
 export function getPresetThemeStyles(name: string): ThemeStyles {
-  if (name === "default") {
-    return defaultThemeState.styles;
-  }
-
   const store = useThemePresetStore.getState();
   const preset = store.getPreset(name);
   if (!preset) {
+    // Catalogue pas encore chargé (ou thème inconnu) : repli sur le squelette par défaut du code.
     return defaultThemeState.styles;
   }
 

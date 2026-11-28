@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
       name: themeTable.name,
       description: themeTable.description,
       version: themeTable.currentVersion,
+      revision: themeTable.currentRevision,
       metadata: themeTable.metadata,
       styles: themeTable.styles,
       createdAt: themeTable.createdAt,
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest) {
     .orderBy(desc(themeTable.updatedAt), themeTable.id);
 
   const etag = `"${createHash("sha256")
-    .update(themes.map((t) => `${t.id}:${t.version}:${t.updatedAt.toISOString()}`).join("|"))
+    .update(themes.map((t) => `${t.id}:${t.revision}:${t.updatedAt.toISOString()}`).join("|"))
     .digest("hex")
     .slice(0, 32)}"`;
 

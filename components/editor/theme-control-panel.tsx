@@ -14,6 +14,7 @@ import HslAdjustmentControls from "@/components/editor/hsl-adjustment-controls";
 import ShadowControl from "@/components/editor/shadow-control";
 import { SliderWithInput } from "@/components/editor/slider-with-input";
 import ThemePresetSelect from "@/components/editor/theme-preset-select";
+import { ThemeInfoPanel } from "@/components/editor/theme-info/theme-info-panel";
 import TabsTriggerPill from "@/components/editor/theme-preview/tabs-trigger-pill";
 import { HorizontalScrollArea } from "@/components/horizontal-scroll-area";
 import { Label } from "@/components/ui/label";
@@ -113,6 +114,7 @@ const ThemeControlPanel = ({ styles, currentMode, onChange }: ThemeControlPanelP
       <div className="border-b">
         <ThemePresetSelect className="h-14 rounded-none" />
       </div>
+      <ThemeInfoPanel />
       <div className="flex min-h-0 flex-1 flex-col space-y-4">
         <Tabs
           value={tab}

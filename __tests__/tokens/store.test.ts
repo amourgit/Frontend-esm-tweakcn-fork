@@ -14,7 +14,7 @@ const store = () => useEditorStore.getState();
 
 beforeEach(() => {
   // Les thèmes système viennent de la base : on hydrate le store comme le fait ThemeCatalogProvider.
-  useThemePresetStore.getState().setBuiltInPresets(builtInThemeRows());
+  useThemePresetStore.getState().setSystemPresets(builtInThemeRows());
   useEditorStore.setState({ themeState: { ...defaultThemeState }, history: [], future: [], themeCheckpoint: null });
 });
 

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { DEFAULT_THEME_ID } from "@/config/default-theme-id";
 import { Theme, ThemePreset } from "@/types/theme";
 import { getThemes } from "@/actions/themes";
 
@@ -8,6 +9,8 @@ export function themeToPreset(theme: Theme, source: "SAVED" | "BUILT_IN"): Theme
     label: theme.name,
     description: theme.description,
     version: theme.currentVersion,
+    revision: theme.currentRevision,
+    isDefault: theme.isDefault,
     styles: theme.styles,
     source,
     createdAt: new Date(theme.createdAt).toISOString(),
@@ -16,46 +19,44 @@ export function themeToPreset(theme: Theme, source: "SAVED" | "BUILT_IN"): Theme
 
 interface ThemePresetStore {
   presets: Record<string, ThemePreset>;
+  /** Thème pris par défaut par le studio : celui dont l'attribut `is_default` est coché en base. */
+  defaultPresetId: string;
   registerPreset: (name: string, preset: ThemePreset) => void;
   unregisterPreset: (name: string) => void;
   updatePreset: (name: string, preset: ThemePreset) => void;
   getPreset: (name: string) => ThemePreset | undefined;
   getAllPresets: () => Record<string, ThemePreset>;
-  /** Charge les thèmes système lus en base (remplace les précédents, conserve les thèmes enregistrés). */
-  setBuiltInPresets: (themes: Theme[]) => void;
+  /** Charge les thèmes système lus en base (remplace les précédents, conserve les thèmes de l'utilisateur). */
+  setSystemPresets: (themes: Theme[]) => void;
   loadSavedPresets: () => Promise<void>;
   unloadSavedPresets: () => void;
 }
 
-const onlyBuiltIn = (presets: Record<string, ThemePreset>) =>
+const onlySystem = (presets: Record<string, ThemePreset>) =>
   Object.fromEntries(Object.entries(presets).filter(([, p]) => p.source === "BUILT_IN"));
 
 export const useThemePresetStore = create<ThemePresetStore>()((set, get) => ({
-  // Les thèmes système viennent de la base : `setBuiltInPresets` les injecte avant le premier rendu de l'éditeur.
+  // Les thèmes système viennent de la base : `setSystemPresets` les injecte avant le premier rendu de l'éditeur.
   presets: {},
-  setBuiltInPresets: (themes: Theme[]) => {
-    const builtIn = Object.fromEntries(themes.map((t) => [t.id, themeToPreset(t, "BUILT_IN")]));
+  defaultPresetId: DEFAULT_THEME_ID,
+  setSystemPresets: (themes: Theme[]) => {
+    const system = Object.fromEntries(themes.map((t) => [t.id, themeToPreset(t, "BUILT_IN")]));
+    const flagged = themes.find((t) => t.isDefault);
     set((state) => ({
+      defaultPresetId: flagged?.id ?? DEFAULT_THEME_ID,
       presets: {
-        ...builtIn,
+        ...system,
         ...Object.fromEntries(Object.entries(state.presets).filter(([, p]) => p.source !== "BUILT_IN")),
       },
     }));
   },
   registerPreset: (name: string, preset: ThemePreset) => {
-    set((state) => ({
-      presets: {
-        ...state.presets,
-        [name]: preset,
-      },
-    }));
+    set((state) => ({ presets: { ...state.presets, [name]: preset } }));
   },
   unregisterPreset: (name: string) => {
     set((state) => {
       const { [name]: _, ...remainingPresets } = state.presets;
-      return {
-        presets: remainingPresets,
-      };
+      return { presets: remainingPresets };
     });
   },
   loadSavedPresets: async () => {
@@ -68,32 +69,17 @@ export const useThemePresetStore = create<ThemePresetStore>()((set, get) => ({
         },
         {} as Record<string, ThemePreset>
       );
-
-      set((state) => ({
-        presets: {
-          ...state.presets,
-          ...savedPresets,
-        },
-      }));
+      set((state) => ({ presets: { ...state.presets, ...savedPresets } }));
     } catch (error) {
       console.error("Failed to load saved presets:", error);
     }
   },
   unloadSavedPresets: () => {
-    set((state) => ({ presets: onlyBuiltIn(state.presets) }));
+    set((state) => ({ presets: onlySystem(state.presets) }));
   },
   updatePreset: (name: string, preset: ThemePreset) => {
-    set((state) => ({
-      presets: {
-        ...state.presets,
-        [name]: preset,
-      },
-    }));
+    set((state) => ({ presets: { ...state.presets, [name]: preset } }));
   },
-  getPreset: (name: string) => {
-    return get().presets[name];
-  },
-  getAllPresets: () => {
-    return get().presets;
-  },
+  getPreset: (name: string) => get().presets[name],
+  getAllPresets: () => get().presets,
 }));

@@ -1,4 +1,4 @@
-import { getBuiltInThemes, getTheme } from "@/actions/themes";
+import { getSystemThemes, getThemeForEditor } from "@/actions/themes";
 import { ThemeCatalogProvider } from "@/components/theme-catalog-provider";
 import Editor from "@/components/editor/editor";
 import { PRODUCT_DESCRIPTION, PRODUCT_NAME } from "@/lib/site";
@@ -11,12 +11,12 @@ export const metadata: Metadata = {
 
 export default async function EditorPage({ params }: { params: Promise<{ themeId: string[] }> }) {
   const { themeId } = await params;
-  const themePromise = themeId?.length > 0 ? getTheme(themeId?.[0]) : Promise.resolve(null);
-  // Les thèmes système viennent de la base (importés au démarrage), plus du fichier de presets.
-  const builtInThemes = await getBuiltInThemes();
+  const themePromise = themeId?.length > 0 ? getThemeForEditor(themeId?.[0]) : Promise.resolve(null);
+  // Les thèmes système (dont le thème par défaut) viennent de la base, plus du fichier de presets.
+  const systemThemes = await getSystemThemes();
 
   return (
-    <ThemeCatalogProvider builtInThemes={builtInThemes}>
+    <ThemeCatalogProvider systemThemes={systemThemes}>
       <Editor themePromise={themePromise} />
     </ThemeCatalogProvider>
   );

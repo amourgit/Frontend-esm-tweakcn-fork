@@ -19,32 +19,33 @@ describe("store de presets alimenté par la base", () => {
     expect(Object.keys(presets().presets)).toHaveLength(0);
   });
 
-  it("setBuiltInPresets expose les 42 thèmes système, identiques à l'ancien chargement fichier", () => {
-    presets().setBuiltInPresets(builtInThemeRows());
+  it("setSystemPresets expose les 42 thèmes système et le thème par défaut, identiques à l'ancien chargement fichier", () => {
+    presets().setSystemPresets(builtInThemeRows());
     const all = presets().presets;
-    expect(Object.keys(all)).toHaveLength(Object.keys(defaultPresets).length);
+    expect(Object.keys(all)).toHaveLength(Object.keys(defaultPresets).length + 1);
     for (const [id, preset] of Object.entries(all)) {
       expect(preset.source).toBe("BUILT_IN");
       expect(preset.version).toBe(1);
-      expect(preset.styles).toEqual(getBuiltInThemeStyles(id)!.styles);
+      expect(preset.revision).toBe(1);
+      if (id !== "default") expect(preset.styles).toEqual(getBuiltInThemeStyles(id)!.styles);
     }
   });
 
   it("applyThemePreset applique un thème système depuis la base, sans modification non enregistrée", () => {
-    presets().setBuiltInPresets(builtInThemeRows());
+    presets().setSystemPresets(builtInThemeRows());
     useEditorStore.getState().applyThemePreset("modern-minimal");
     expect(useEditorStore.getState().themeState.styles.light.primary).toBe("#3b82f6");
     expect(useEditorStore.getState().hasUnsavedChanges()).toBe(false);
   });
 
   it("une nouvelle version d'un thème système (rechargement) remplace son contenu et son numéro", () => {
-    presets().setBuiltInPresets(builtInThemeRows());
+    presets().setSystemPresets(builtInThemeRows());
     const rows = builtInThemeRows();
     const edited = rows.find((r) => r.id === "modern-minimal")!;
     edited.styles = { ...edited.styles, light: { ...edited.styles.light, primary: "#123456" } };
     edited.currentVersion = 2;
     edited.description = "Adapté à l'organisation";
-    presets().setBuiltInPresets(rows);
+    presets().setSystemPresets(rows);
     expect(presets().presets["modern-minimal"]).toMatchObject({ version: 2, description: "Adapté à l'organisation" });
     expect(presets().presets["modern-minimal"].styles.light.primary).toBe("#123456");
   });
@@ -52,10 +53,26 @@ describe("store de presets alimenté par la base", () => {
   it("recharger les thèmes système conserve les thèmes enregistrés, et se déconnecter conserve les thèmes système", () => {
     const [first] = builtInThemeRows();
     presets().registerPreset("mine", themeToPreset({ ...first, id: "mine", source: "USER", userId: "u1" }, "SAVED"));
-    presets().setBuiltInPresets(builtInThemeRows());
+    presets().setSystemPresets(builtInThemeRows());
     expect(presets().presets.mine?.source).toBe("SAVED");
     presets().unloadSavedPresets();
     expect(presets().presets.mine).toBeUndefined();
-    expect(Object.keys(presets().presets)).toHaveLength(Object.keys(defaultPresets).length);
+    expect(Object.keys(presets().presets)).toHaveLength(Object.keys(defaultPresets).length + 1);
+  });
+
+  it("le thème par défaut est celui dont l'attribut is_default est coché en base", () => {
+    expect(presets().defaultPresetId).toBe("default"); // valeur de repli avant chargement
+    const rows = builtInThemeRows().map((r) => ({ ...r, isDefault: r.id === "modern-minimal" }));
+    presets().setSystemPresets(rows);
+    expect(presets().defaultPresetId).toBe("modern-minimal");
+    expect(presets().presets["modern-minimal"].isDefault).toBe(true);
+    expect(presets().presets.default.isDefault).toBe(false);
+  });
+
+  it("le thème par défaut se charge depuis la base comme les autres", () => {
+    presets().setSystemPresets(builtInThemeRows());
+    useEditorStore.getState().applyThemePreset("default");
+    expect(useEditorStore.getState().themeState.styles).toEqual(defaultThemeState.styles);
+    expect(useEditorStore.getState().hasUnsavedChanges()).toBe(false);
   });
 });

@@ -2,9 +2,7 @@
 
 import { z } from "zod";
 import { db } from "@/db";
-import * as themeService from "@/lib/themes/service";
-import { seedBuiltInThemes } from "@/lib/themes/seed";
-import { defaultPresets } from "@/utils/theme-presets";
+import * as themes from "@/lib/themes";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { themeStylesInputSchema, type ThemeStyles } from "@/types/theme";
@@ -13,7 +11,9 @@ import {
   UnauthorizedError,
   ValidationError,
   ThemeNotFoundError,
-  ThemeVersionConflictError,
+  ThemeRevisionConflictError,
+  ThemeRevisionAlreadyVersionedError,
+  ThemeForbiddenError,
   actionError,
   actionSuccess,
   ErrorCode,
@@ -30,6 +30,12 @@ async function getCurrentUserId(): Promise<string> {
   }
 
   return session.user.id;
+}
+
+/** Identité de l'appelant, ou null (lecture publique des thèmes système). */
+async function getOptionalUserId(): Promise<string | null> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  return session?.user?.id ?? null;
 }
 
 // Log errors for observability
@@ -50,7 +56,7 @@ const MAX_METADATA_BYTES = 32 * 1024;
 
 const nameSchema = z.string().trim().min(1, "Theme name cannot be empty").max(50, "Theme name too long");
 const descriptionSchema = z.string().max(500, "Description too long").nullable();
-const changeNoteSchema = z.string().max(500, "Change note too long").nullable();
+const messageSchema = z.string().max(500, "Message too long").nullable();
 const metadataSchema = z
   .record(z.string(), z.unknown())
   .refine((m) => JSON.stringify(m).length <= MAX_METADATA_BYTES, {
@@ -62,27 +68,52 @@ const createThemeSchema = z.object({
   description: descriptionSchema.optional(),
   styles: themeStylesInputSchema,
   metadata: metadataSchema.optional(),
-  changeNote: changeNoteSchema.optional(),
+  message: messageSchema.optional(),
+  /** Thème dont celui-ci est une copie dérivée : le serveur en relève l'état et la version. */
+  derivedFromThemeId: z.string().min(1).optional(),
 });
 
-const updateThemeSchema = z.object({
+const saveStateSchema = z.object({
   id: z.string().min(1, "Theme ID required"),
   name: nameSchema.optional(),
   description: descriptionSchema.optional(),
   styles: themeStylesInputSchema.optional(),
   metadata: metadataSchema.optional(),
-  changeNote: changeNoteSchema.optional(),
-  /** Version sur laquelle l'utilisateur a travaillé (détection des modifications concurrentes). */
-  baseVersion: z.number().int().positive().optional(),
+  message: messageSchema.optional(),
+  /** État sur lequel l'utilisateur a travaillé (détection des modifications concurrentes). */
+  baseRevision: z.number().int().positive().optional(),
+  /** Pose aussi une version sur l'état enregistré. */
+  release: z.object({ notes: messageSchema.optional() }).optional(),
 });
 
-// Layer 1: Clean server actions with proper error handling
+const createVersionSchema = z.object({
+  themeId: z.string().min(1),
+  /** État à étiqueter ; par défaut l'état courant. */
+  revision: z.number().int().positive().optional(),
+  notes: messageSchema.optional(),
+});
 
-/** Thèmes de l'utilisateur connecté (thèmes système exclus : voir `getBuiltInThemes`). */
+/** Erreurs métier attendues → résultat typé (le message survit à la sérialisation des server actions). */
+function toActionError(error: unknown) {
+  if (error instanceof ThemeRevisionConflictError) {
+    return actionError(ErrorCode.THEME_REVISION_CONFLICT, error.message);
+  }
+  if (error instanceof ThemeRevisionAlreadyVersionedError) {
+    return actionError(ErrorCode.THEME_ALREADY_VERSIONED, error.message);
+  }
+  if (error instanceof ThemeForbiddenError) {
+    return actionError(ErrorCode.THEME_FORBIDDEN, error.message);
+  }
+  return null;
+}
+
+// ───────────────────────────── Lecture ─────────────────────────────
+
+/** Thèmes de l'utilisateur connecté (thèmes système exclus : voir `getSystemThemes`). */
 export async function getThemes() {
   try {
     const userId = await getCurrentUserId();
-    return await themeService.listUserThemes(db, userId);
+    return await themes.listUserThemes(db, userId);
   } catch (error) {
     logError(error as Error, { action: "getThemes" });
     throw error;
@@ -90,30 +121,31 @@ export async function getThemes() {
 }
 
 /**
- * Thèmes système (livrés avec le studio), lus depuis la base — publics, sans authentification.
+ * Thèmes système (auteur : le système), thème par défaut compris — publics, sans authentification.
  * Garde-fou : si la base n'a jamais été initialisée (seed non joué), on l'importe une fois ici.
  */
-export async function getBuiltInThemes() {
+export async function getSystemThemes() {
   try {
-    let rows = await themeService.listBuiltInThemes(db);
+    let rows = await themes.listSystemThemes(db);
     if (rows.length === 0) {
-      await seedBuiltInThemes(db, defaultPresets);
-      rows = await themeService.listBuiltInThemes(db);
+      await themes.seedSystemThemes(db);
+      rows = await themes.listSystemThemes(db);
     }
     return rows;
   } catch (error) {
-    logError(error as Error, { action: "getBuiltInThemes" });
+    logError(error as Error, { action: "getSystemThemes" });
     throw error;
   }
 }
 
+/** Thème par identifiant (état courant). Public : sert les liens de partage et le registre. */
 export const getTheme = cache(async (themeId: string) => {
   try {
     if (!themeId) {
       throw new ValidationError("Theme ID required");
     }
 
-    const theme = await themeService.getThemeById(db, themeId);
+    const theme = await themes.getThemeById(db, themeId);
 
     if (!theme) {
       throw new ThemeNotFoundError();
@@ -126,12 +158,70 @@ export const getTheme = cache(async (themeId: string) => {
   }
 });
 
+/** Thème à ouvrir dans l'éditeur : un thème système, ou un thème appartenant à l'utilisateur. */
+export async function getThemeForEditor(themeId: string) {
+  try {
+    const userId = await getOptionalUserId();
+    const theme = await themes.getThemeById(db, themeId);
+    if (!theme) throw new ThemeNotFoundError();
+    themes.assertCanRead(theme, userId);
+    return theme;
+  } catch (error) {
+    logError(error as Error, { action: "getThemeForEditor", themeId });
+    throw error;
+  }
+}
+
+/** Fiche d'identité du thème (version, auteur, dates, provenance…). */
+export async function getThemeDetails(themeId: string) {
+  try {
+    return await themes.getThemeDetails(db, themeId, await getOptionalUserId());
+  } catch (error) {
+    logError(error as Error, { action: "getThemeDetails", themeId });
+    throw error;
+  }
+}
+
+/** États du thème, le plus récent d'abord. */
+export async function getThemeRevisions(themeId: string) {
+  try {
+    return await themes.listRevisions(db, themeId, await getOptionalUserId());
+  } catch (error) {
+    logError(error as Error, { action: "getThemeRevisions", themeId });
+    throw error;
+  }
+}
+
+/** Contenu complet (styles compris) d'un état. */
+export async function getThemeRevision(themeId: string, revision: number) {
+  try {
+    return await themes.getRevision(db, themeId, revision, await getOptionalUserId());
+  } catch (error) {
+    logError(error as Error, { action: "getThemeRevision", themeId });
+    throw error;
+  }
+}
+
+/** Versions du thème, la plus récente d'abord. */
+export async function getThemeVersions(themeId: string) {
+  try {
+    return await themes.listVersions(db, themeId, await getOptionalUserId());
+  } catch (error) {
+    logError(error as Error, { action: "getThemeVersions", themeId });
+    throw error;
+  }
+}
+
+// ───────────────────────────── Écriture ─────────────────────────────
+
+/** Crée un thème appartenant à l'utilisateur (état 1 + version 1), éventuellement dérivé d'un autre. */
 export async function createTheme(formData: {
   name: string;
   styles: ThemeStyles;
   description?: string | null;
   metadata?: Record<string, unknown>;
-  changeNote?: string | null;
+  message?: string | null;
+  derivedFromThemeId?: string;
 }) {
   try {
     const userId = await getCurrentUserId();
@@ -141,7 +231,7 @@ export async function createTheme(formData: {
       throw new ValidationError("Invalid input", validation.error.format());
     }
 
-    const { theme } = await themeService.createTheme(db, { userId, ...validation.data });
+    const { theme } = await themes.createTheme(db, { actorId: userId, ...validation.data });
     return actionSuccess(theme);
   } catch (error) {
     logError(error as Error, { action: "createTheme", formData: { name: formData.name } });
@@ -150,49 +240,91 @@ export async function createTheme(formData: {
 }
 
 /**
- * Enregistre une nouvelle version du thème (jamais d'écrasement). Renvoie le thème à jour ;
- * `versionCreated` vaut false si le contenu était identique à la version courante.
+ * Enregistre un nouvel ÉTAT du thème (jamais d'écrasement) ; avec `release`, pose aussi une version
+ * sur cet état. `revisionCreated` vaut false si le contenu était identique à l'état courant.
  */
-export async function updateTheme(formData: {
+export async function saveThemeState(formData: {
   id: string;
   name?: string;
   description?: string | null;
   styles?: ThemeStyles;
   metadata?: Record<string, unknown>;
-  changeNote?: string | null;
-  baseVersion?: number;
+  message?: string | null;
+  baseRevision?: number;
+  release?: { notes?: string | null };
 }) {
   try {
     const userId = await getCurrentUserId();
 
-    const validation = updateThemeSchema.safeParse(formData);
+    const validation = saveStateSchema.safeParse(formData);
     if (!validation.success) {
       throw new ValidationError("Invalid input", validation.error.format());
     }
 
-    const { id: themeId, ...changes } = validation.data;
-
+    const { id: themeId, release, ...changes } = validation.data;
     if (
       changes.name === undefined &&
       changes.description === undefined &&
       changes.styles === undefined &&
-      changes.metadata === undefined
+      changes.metadata === undefined &&
+      !release
     ) {
       throw new ValidationError("No update data provided");
     }
 
-    const { theme, versionCreated } = await themeService.saveThemeVersion(
-      db,
-      themeId,
-      userId,
-      changes
-    );
-    return actionSuccess({ ...theme, versionCreated });
+    const result = await themes.saveRevision(db, themeId, userId, changes, { release });
+    return actionSuccess({
+      ...result.theme,
+      revisionCreated: result.revisionCreated,
+      versionCreated: result.version !== null,
+    });
   } catch (error) {
-    if (error instanceof ThemeVersionConflictError) {
-      return actionError(ErrorCode.THEME_VERSION_CONFLICT, error.message);
+    const expected = toActionError(error);
+    if (expected) return expected;
+    logError(error as Error, { action: "saveThemeState", themeId: formData.id });
+    throw error;
+  }
+}
+
+/** Pose une version sur un état précis du thème (par défaut l'état courant). */
+export async function createThemeVersion(formData: {
+  themeId: string;
+  revision?: number;
+  notes?: string | null;
+}) {
+  try {
+    const userId = await getCurrentUserId();
+
+    const validation = createVersionSchema.safeParse(formData);
+    if (!validation.success) {
+      throw new ValidationError("Invalid input", validation.error.format());
     }
-    logError(error as Error, { action: "updateTheme", themeId: formData.id });
+
+    const { themeId, ...input } = validation.data;
+    const { theme, version } = await themes.createVersion(db, themeId, userId, input);
+    return actionSuccess({ ...theme, createdVersion: version.version });
+  } catch (error) {
+    const expected = toActionError(error);
+    if (expected) return expected;
+    logError(error as Error, { action: "createThemeVersion", themeId: formData.themeId });
+    throw error;
+  }
+}
+
+/** Restaure un ancien état : crée un nouvel état avec son contenu (l'historique n'est jamais réécrit). */
+export async function restoreThemeRevision(themeId: string, revision: number) {
+  try {
+    const userId = await getCurrentUserId();
+    const result = await themes.restoreRevision(db, themeId, userId, revision);
+    return actionSuccess({
+      ...result.theme,
+      revisionCreated: result.revisionCreated,
+      versionCreated: false,
+    });
+  } catch (error) {
+    const expected = toActionError(error);
+    if (expected) return expected;
+    logError(error as Error, { action: "restoreThemeRevision", themeId });
     throw error;
   }
 }
@@ -205,58 +337,9 @@ export async function deleteTheme(themeId: string) {
       throw new ValidationError("Theme ID required");
     }
 
-    return await themeService.softDeleteTheme(db, themeId, userId);
+    return await themes.softDeleteTheme(db, themeId, userId);
   } catch (error) {
     logError(error as Error, { action: "deleteTheme", themeId });
-    throw error;
-  }
-}
-
-/** Historique d'un thème (sans les styles), version la plus récente d'abord. Lisible par tout utilisateur connecté pour un thème système, par son propriétaire pour un thème utilisateur. */
-export async function getThemeVersions(themeId: string) {
-  try {
-    const userId = await getCurrentUserId();
-    const theme = await themeService.getThemeById(db, themeId);
-    if (!theme || (theme.source === "USER" && theme.userId !== userId)) {
-      throw new ThemeNotFoundError();
-    }
-    return await themeService.listThemeVersions(db, themeId);
-  } catch (error) {
-    logError(error as Error, { action: "getThemeVersions", themeId });
-    throw error;
-  }
-}
-
-/** Contenu complet (styles compris) d'une version donnée. */
-export async function getThemeVersion(themeId: string, version: number) {
-  try {
-    const userId = await getCurrentUserId();
-    const theme = await themeService.getThemeById(db, themeId);
-    if (!theme || (theme.source === "USER" && theme.userId !== userId)) {
-      throw new ThemeNotFoundError();
-    }
-    const row = await themeService.getThemeVersion(db, themeId, version);
-    if (!row) throw new ThemeNotFoundError("Theme version not found");
-    return row;
-  } catch (error) {
-    logError(error as Error, { action: "getThemeVersion", themeId });
-    throw error;
-  }
-}
-
-/** Restaure une ancienne version : crée une nouvelle version avec son contenu. */
-export async function restoreThemeVersion(themeId: string, version: number) {
-  try {
-    const userId = await getCurrentUserId();
-    const { theme, versionCreated } = await themeService.restoreThemeVersion(
-      db,
-      themeId,
-      userId,
-      version
-    );
-    return actionSuccess({ ...theme, versionCreated });
-  } catch (error) {
-    logError(error as Error, { action: "restoreThemeVersion", themeId });
     throw error;
   }
 }
