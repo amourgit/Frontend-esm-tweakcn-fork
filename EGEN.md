@@ -28,8 +28,8 @@ L'app **demande** ; l'opérateur du Core **approuve** un plafond dans son `exter
 Identité, session, droits, thème et appels API ne passent **pas** par le SDK (règle d'or) : l'app les obtient auprès de leurs sources (Keycloak, service de thèmes, backends).
 
 ## En local
-1. `cp .env.example .env`, renseigner `DATABASE_URL`, `BETTER_AUTH_SECRET`, `EGEN_PUBLIC_URL=http://localhost:3000`, `EGEN_FRAME_ANCESTORS=http://localhost:<port du Core>` ; `pnpm dev`.
-2. Core : entrée `embed` ci-dessus avec `manifest` = `http://localhost:3000/egen-config.json` (`EGEN_ALLOW_HTTP=1` pour `http` en local), puis `yarn external:sync`.
+1. `cp .env.example .env`, renseigner `DATABASE_URL`, `BETTER_AUTH_SECRET`, `EGEN_PUBLIC_URL=http://localhost:3200`, `EGEN_FRAME_ANCESTORS=http://localhost:<port du Core>` (le Core local `serve-prod` écoute sur `http://localhost:8080`) ; `pnpm dev` (http://localhost:3200).
+2. Core : entrée `embed` ci-dessus avec `manifest` = `http://localhost:3200/egen-config.json` (`EGEN_EXTERNAL_ALLOW_HTTP=true` côté Core pour accepter `http` en local), puis `yarn external:sync`.
 
 ## En production (à froid)
 Déployer l'image (`docker compose up -d --build`) avec `EGEN_PUBLIC_URL` (https) et `EGEN_FRAME_ANCESTORS` (origine du Shell). Dans le Core : déclarer l'entrée `embed`, `yarn external:sync`, redémarrer. Aucune publication de paquet.

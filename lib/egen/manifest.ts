@@ -50,11 +50,12 @@ export function buildEgenManifest(publicUrl: string | undefined | null): EmbedMa
     technology: "nextjs",
     navigation: { mode: "history", basePath: "/" },
     // Panneau de rail gauche + entrée de navigation « Conception » (dérivés par le Core à partir de `placement`).
-    placement: { rail: "left", group: "conception", icon: "Palette" },
+    placement: { rail: "left", group: "Conception", icon: "Palette" },
     capabilities: {
       locale: {},
       navigation: {},
       notifications: {},
+      // Espace de noms propre à l'app (theme-studio) — doit correspondre au grant `events.publish` du Core.
       events: { publish: ["app.theme-studio.*"], subscribe: ["core.*"] },
     },
     // Exports (téléchargements), dialogues, liens externes hors bac à sable ; presse-papiers et plein écran.
@@ -66,7 +67,7 @@ export function buildEgenManifest(publicUrl: string | undefined | null): EmbedMa
   };
 
   // Le protocole exige https ; le développement local (http://localhost) est toléré comme le fait l'outillage du Core
-  // (`EGEN_ALLOW_HTTP`) : seule l'URL est alors validée sous sa forme https équivalente.
+  // (`EGEN_EXTERNAL_ALLOW_HTTP=true`, côté Core uniquement) : seule l'URL est alors validée sous sa forme https équivalente.
   const result = validateManifest(isLocalHttp(url) ? { ...manifest, url: "https://localhost" } : manifest);
   if (!result.ok) {
     throw new EgenManifestError(`Déclaration EGEN invalide : ${result.errors.join(" ; ")}`);

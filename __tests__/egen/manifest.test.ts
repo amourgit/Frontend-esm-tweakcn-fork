@@ -19,7 +19,7 @@ describe("déclaration egen-config.json", () => {
   });
 
   it("se place dans le rail gauche, groupe Conception", () => {
-    expect(manifest.placement).toEqual({ rail: "left", group: "conception", icon: "Palette" });
+    expect(manifest.placement).toEqual({ rail: "left", group: "Conception", icon: "Palette" });
   });
 
   it("ne demande que des capacités de la voie unique (aucune identité, aucun thème, aucune API)", () => {

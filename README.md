@@ -29,7 +29,7 @@ docker compose up -d --build
 ```
 
 - L'application applique elle-même les migrations au démarrage (idempotent) et attend que la base soit prête.
-- Santé : `curl http://localhost:3000/api/health` → `{"status":"ok"}`
+- Santé : `curl http://localhost:3200/api/health` → `{"status":"ok"}`
 - Logs : `docker compose logs -f app`
 - Mise à jour : `git pull && docker compose up -d --build`
 - Les données sont dans le volume `pgdata`. Sauvegarde : `docker compose exec db pg_dump -U studio egen_theme_studio > sauvegarde.sql`
@@ -40,7 +40,7 @@ docker compose up -d --build
 
 ```bash
 docker build -t egen-theme-studio:latest --build-arg NEXT_PUBLIC_APP_URL=https://studio.example.org .
-docker run -d --name egen-theme-studio -p 3000:3000 \
+docker run -d --name egen-theme-studio -p 3200:3000 \
   -e DATABASE_URL="postgresql://user:motdepasse@hote:5432/base" \
   -e BETTER_AUTH_SECRET="..." -e BASE_URL="https://studio.example.org" \
   -e GITHUB_CLIENT_ID="..." -e GITHUB_CLIENT_SECRET="..." \
@@ -74,7 +74,7 @@ corepack enable                      # ou : npm install -g pnpm@10.34.9
 pnpm install --frozen-lockfile
 cp .env.example .env                 # DATABASE_URL pointe vers votre PostgreSQL local
 pnpm db:migrate
-pnpm dev                             # http://localhost:3000
+pnpm dev                             # http://localhost:3200
 ```
 
 PostgreSQL jetable pour le développement :
