@@ -66,7 +66,7 @@ const eslintConfig = [
     },
   },
   {
-    ignores: [".next/**", "node_modules/**", "integrations/**"],
+    ignores: [".next/**", "node_modules/**"],
   },
 ];
 
