@@ -18,7 +18,7 @@ describe("déclaration egen-config.json", () => {
     expect(manifest.navigation.mode).toBe("history");
   });
 
-  it("se place dans le rail gauche, groupe Conception", () => {
+  it("se place dans le rail gauche, groupe Conception (libellé affiché ; le Core en dérive l'identifiant)", () => {
     expect(manifest.placement).toEqual({ rail: "left", group: "Conception", icon: "Palette" });
   });
 
